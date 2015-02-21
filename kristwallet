@@ -1,12 +1,9 @@
---Don't edit the version number, you'll get
---strange side effects which may cause a loss
---of Krist holdings. You've been warned...
-local version = 1
 --This file is not intended to be edited at
 --all in game. You are allowed to do so,
 --but it may be dangerous, and most importantly,
 --may cause LOSS OF KRIST! No making changes
 --unless you know absolutely what you're doing.
+local version = 2
 local balance = 0
 local totalsent = 0
 local totalreceived = 0
@@ -15,6 +12,12 @@ local MODM = MOD-1
 local page = 0
 local masterkey = ""
 local address = ""
+local subject = ""
+local subbal = 0
+local subtxs = ""
+local stdate = {}
+local stpeer = {}
+local stval = {}
 
 local function boot()
   print("Starting KristWallet version "..tostring(version))
@@ -27,6 +30,11 @@ local function boot()
   repeat
     wallet()
   until page == 0
+  term.setBackgroundColor(32768)
+  term.setTextColor(16)
+  term.clear()
+  term.setCursorPos(1,1)
+  print("KristWallet by cossacksson")
 end
 function update()
   local latest = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getwalletversion").readAll())
@@ -35,9 +43,9 @@ function update()
     local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
     local nextversion = http.get("http://65.26.252.225/quest/dia/krist/kristwallet").readAll()
     print("Downloaded update. Your computer will now restart to finish the installation. You will have to run this program again after the restart is finished.")
-    --sleep(10)
     me.write(nextversion)
     me.close()
+    sleep(10)
     os.reboot()
   else
     --print("Up to date!")
@@ -273,11 +281,30 @@ function wallet()
   --button: 1 = left, 2 = right
   if yPos == 5 and xPos >= 3 and xPos <= 14 then
     page = 1
+    balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+  end
+  if yPos == 7 and xPos >= 3 and xPos <= 14 then
+    page = 2
+    subject = address
+    
+    --balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
   end
   if yPos == 9 and xPos >= 3 and xPos <= 14 then
     page = 3
+    balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
   end
-  if page == 3 then
+  if yPos == 17 and xPos >= 3 and xPos <= 14 then
+    page = 0
+  end
+  if page == 2 then
+    if yPos > 2 and xPos >= 31 and xPos <= 41 then
+      if stpeer[yPos-2] == "N/A(Mined)" then
+        --possibly link to a block later?
+      else
+        subject = stpeer[yPos-2]
+      end
+    end
+  elseif page == 3 then
     if xPos >= 17 then
       term.setCursorPos(33,5)
       local recipient = read()
@@ -285,6 +312,30 @@ function wallet()
       local amount = read()
       local transaction = http.get("http://65.26.252.225/quest/dia/krist/index.php?pushtx&q="..recipient.."&pkey="..masterkey.."&amt="..amount).readAll()
       balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+      --term.setCursorPos(33,6)
+      --term.write("Output: "..transaction)
+      term.setCursorPos(19,8)
+      if transaction == "Success" then
+        term.setTextColor(8192)
+        term.write("Transfer successful")
+        term.setTextColor(32768)
+      elseif string.sub(transaction,0,5) == "Error" then
+        local problem = "An unknown error happened"
+        local code = tonumber(string.sub(transaction,6,10))
+        --problem = tostring(code)
+        if code == 1 then problem = "Insufficient funds available" end
+        if code == 2 then problem = "Not enough KST in transaction" end
+        if code == 3 then problem = "Can't comprehend amount to send" end
+        if code == 4 then problem = "Invalid recipient address" end
+        term.setTextColor(16384)
+        term.write(problem)
+        term.setTextColor(32768)
+      else
+        term.setTextColor(16384)
+        term.write("Connection timed out")
+        term.setTextColor(32768)
+      end
+      os.sleep(2.5)
     end
   end
 end
@@ -315,9 +366,17 @@ function hud()
   term.setCursorPos(3,5)
   drawTab("  Overview  ")
   term.setCursorPos(3,7)
-  --drawTab("Transactions")
+  drawTab("Transactions")
   term.setCursorPos(3,9)
   drawTab(" Send Krist ")
+  term.setCursorPos(3,11)
+  drawTab("")
+  term.setCursorPos(3,13)
+  --drawTab(" Blockchain ")
+  term.setCursorPos(3,15)
+  drawTab("")
+  term.setCursorPos(3,17)
+  drawTab("    Exit    ")
   term.setBackgroundColor(1)
   if page == 1 then
     term.setCursorPos(19,2)
@@ -331,6 +390,50 @@ function hud()
     term.write(tostring(balance).." KST")
     term.setTextColor(32768)
     term.setCursorPos(19,5)
+  elseif page == 2 then
+    subbal = http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..subject).readAll()
+    subtxs = http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..subject).readAll()
+    term.setCursorPos(18,1)
+    term.write("ADDRESS "..subject.." - "..subbal.." KST")
+    term.setCursorPos(18,3)
+    --term.write(subtxs)
+    term.setCursorPos(17,2)
+    term.setBackgroundColor(256)
+    term.write(" Time         Peer           Value ")
+    term.setBackgroundColor(1)
+    local tx = 0
+    local s = 0
+    local ar = 0
+    repeat
+      tx = tx + 1
+      stdate[tx] = string.sub(subtxs,1,12)
+      subtxs = string.sub(subtxs,13)
+      stpeer[tx] = string.sub(subtxs,1,10)
+      subtxs = string.sub(subtxs,11)
+      stval[tx] = tonumber(string.sub(subtxs,1,9))
+      subtxs = string.sub(subtxs,10)
+      if stpeer[tx] == subject then stval[tx] = 0 end
+    until string.len(subtxs) == 0
+    repeat
+      ar = ar + 1
+      term.setTextColor(32768)
+      term.setCursorPos(18,2+ar)
+      term.write(stdate[ar])
+      if stpeer[ar] ~= "N/A(Mined)" then term.setTextColor(512) end
+      term.setCursorPos(31,2+ar)
+      term.write(stpeer[ar])
+      term.setCursorPos(50-string.len(tostring(math.abs(stval[ar]))),2+ar)
+      if stval[ar] > 0 then
+        term.setTextColor(8192)
+        term.write("+")
+      elseif stval[ar] < 0 then
+        term.setTextColor(16384)
+      else
+        term.setTextColor(32768)
+        term.write(" ")
+      end
+      term.write(tostring(stval[ar]))
+    until ar == tx
   elseif page == 3 then
     term.setCursorPos(19,2)
     term.write("Your address: ")
