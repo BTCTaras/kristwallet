@@ -3,7 +3,7 @@
 --but it may be dangerous, and most importantly,
 --may cause LOSS OF KRIST! No making changes
 --unless you know absolutely what you're doing.
-local version = 3
+local version = 4
 local balance = 0
 local totalsent = 0
 local totalreceived = 0
@@ -13,6 +13,7 @@ local page = 0
 local lastpage = 0
 local scroll = 0
 local masterkey = ""
+local addressv1 = ""
 local address = ""
 local subject = ""
 local subbal = 0
@@ -27,11 +28,7 @@ local ar = 0
 
 local function boot()
   print("Starting KristWallet version "..tostring(version))
-  sleep(0.1)
-  print("Checking for updates...")
   update()
-  print("Up to date!")
-  sleep(0.1)
   openwallet()
   repeat
     wallet()
@@ -40,7 +37,6 @@ local function boot()
   term.setTextColor(16)
   term.clear()
   term.setCursorPos(1,1)
-  print("KristWallet by cossacksson")
 end
 function update()
   local latest = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getwalletversion").readAll())
@@ -48,11 +44,9 @@ function update()
     print("An update is available!")
     local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
     local nextversion = http.get("http://65.26.252.225/quest/dia/krist/kristwallet").readAll()
-    print("Downloaded update. Your computer will now restart to finish the installation. You will have to run this program again after the restart is finished.")
+    print("Installed update. Run this program again to start version "..latest..".")
     me.write(nextversion)
     me.close()
-    sleep(10)
-    os.reboot()
   else
     --print("Up to date!")
     --print("Version "..tostring(version))
@@ -237,6 +231,46 @@ local function sha256(msg)
         return str2hexa(num2s(H[1], 4) .. num2s(H[2], 4) .. num2s(H[3], 4) .. num2s(H[4], 4) ..
                 num2s(H[5], 4) .. num2s(H[6], 4) .. num2s(H[7], 4) .. num2s(H[8], 4))
 end
+local function hextobase36(j)
+  if j <= 6 then return "0"
+  elseif j <= 13 then return "1"
+  elseif j <= 20 then return "2"
+  elseif j <= 27 then return "3"
+  elseif j <= 34 then return "4"
+  elseif j <= 41 then return "5"
+  elseif j <= 48 then return "6"
+  elseif j <= 55 then return "7"
+  elseif j <= 62 then return "8"
+  elseif j <= 69 then return "9"
+  elseif j <= 76 then return "a"
+  elseif j <= 83 then return "b"
+  elseif j <= 90 then return "c"
+  elseif j <= 97 then return "d"
+  elseif j <= 104 then return "e"
+  elseif j <= 111 then return "f"
+  elseif j <= 118 then return "g"
+  elseif j <= 125 then return "h"
+  elseif j <= 132 then return "i"
+  elseif j <= 139 then return "j"
+  elseif j <= 146 then return "k"
+  elseif j <= 153 then return "l"
+  elseif j <= 160 then return "m"
+  elseif j <= 167 then return "n"
+  elseif j <= 174 then return "o"
+  elseif j <= 181 then return "p"
+  elseif j <= 188 then return "q"
+  elseif j <= 195 then return "r"
+  elseif j <= 202 then return "s"
+  elseif j <= 209 then return "t"
+  elseif j <= 216 then return "u"
+  elseif j <= 223 then return "v"
+  elseif j <= 230 then return "w"
+  elseif j <= 237 then return "x"
+  elseif j <= 244 then return "y"
+  elseif j <= 251 then return "z"
+  else return "e" -- because why the fuck not
+  end
+end
 function openwallet()
   term.setBackgroundColor(8)
   term.clear()
@@ -278,7 +312,30 @@ function openwallet()
   term.setCursorPos(1,1)
   page = 1
   masterkey = password.."-000"
-  address = string.sub(sha256(masterkey),0,10)
+  addressv1 = string.sub(sha256(masterkey),0,10)
+--  local protein = {}
+--  local stick = sha256(sha256(masterkey))
+  local n = 0
+--  local link = 0
+  repeat
+--    if n < 9 then protein[n] = string.sub(stick,0,2)
+--    stick = sha256(sha256(stick)) end
+    n = n + 1
+  until n == 9
+--  address = 'k' -- all v2 addresses begin with k (so that we can tell what version it is, theoretical v3 addresses may start with w or something)
+  n = 0
+  repeat
+--    link = tonumber(string.sub(stick,1+(2*n),2+(2*n)),16) % 9
+--    print(link)
+--    if string.len(protein[link]) ~= 0 then
+--      address = address .. hextobase36(tonumber(protein[link],16))
+--      protein[link] = ''
+      n = n + 1
+--    else
+--      stick = sha256(stick)
+--    end
+  until n == 9
+  address = addressv1 --temporary
   balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
 end
 function wallet()
@@ -293,7 +350,6 @@ function wallet()
     page = 2
     subject = address
     scroll = 0
-    --balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
   end
   if yPos == 9 and xPos >= 3 and xPos <= 14 then
     page = 3
@@ -371,7 +427,7 @@ function wallet()
     if yPos == 3 and xPos >= 35 and xPos <= 48 then
       page = 6
     end
-    if yPos == 4 and xPos >= 35 and xPos <= 42 then
+    if yPos == 4 and xPos >= 35 and xPos <= 46 then
       page = 7
     end
   elseif page == 5 then
@@ -431,6 +487,8 @@ function hud()
   term.setCursorPos(5,3)
   term.setTextColor(2048)
   term.write("release "..version.."")
+  term.setCursorPos(2,19)
+  term.write("by cossacksson")
   term.setTextColor(32768)
   term.setCursorPos(3,5)
   drawTab("  Overview  ")
@@ -456,7 +514,7 @@ function hud()
     term.setCursorPos(19,3)
     term.write("Your balance: ")
     term.setTextColor(1024)
-    if string.len(tostring(balance)) == 3 then balance = 0 end
+    if tostring(balance) == 'nil' then balance = 0 end
     term.write(tostring(balance).." KST")
     term.setTextColor(32768)
     term.setCursorPos(19,5)
@@ -554,6 +612,7 @@ function hud()
     term.setCursorPos(19,3)
     term.write("Your balance: ")
     term.setTextColor(1024)
+    if tostring(balance) == 'nil' then balance = 0 end
     term.write(tostring(balance).." KST")
     term.setTextColor(32768)
     term.setCursorPos(19,5)
@@ -570,7 +629,7 @@ function hud()
     term.write("Latest blocks   Address lookup")
     term.setCursorPos(19,4)
     --term.write("Lowest hashes   Rich list")
-    term.write("                Rich list")
+    term.write("                Top balances")
     term.setCursorPos(19,5)
     term.write("   ")
     term.setTextColor(32768)
