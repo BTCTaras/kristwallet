@@ -3,13 +3,15 @@
 --but it may be dangerous, and most importantly,
 --may cause LOSS OF KRIST! No making changes
 --unless you know absolutely what you're doing.
-local version = 2
+local version = 3
 local balance = 0
 local totalsent = 0
 local totalreceived = 0
 local MOD = 2^32
 local MODM = MOD-1
 local page = 0
+local lastpage = 0
+local scroll = 0
 local masterkey = ""
 local address = ""
 local subject = ""
@@ -18,6 +20,10 @@ local subtxs = ""
 local stdate = {}
 local stpeer = {}
 local stval = {}
+local blkpeer = {}
+local pagespace = ""
+local maxspace = ""
+local ar = 0
 
 local function boot()
   print("Starting KristWallet version "..tostring(version))
@@ -286,23 +292,42 @@ function wallet()
   if yPos == 7 and xPos >= 3 and xPos <= 14 then
     page = 2
     subject = address
-    
+    scroll = 0
     --balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
   end
   if yPos == 9 and xPos >= 3 and xPos <= 14 then
     page = 3
     balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
   end
+  if yPos == 13 and xPos >= 3 and xPos <= 14 then
+    page = 4
+  end
   if yPos == 17 and xPos >= 3 and xPos <= 14 then
     page = 0
   end
   if page == 2 then
-    if yPos > 2 and xPos >= 31 and xPos <= 41 then
-      if stpeer[yPos-2] == "N/A(Mined)" then
+    if yPos > 2 and yPos <= 2+ar-(16*(scroll)) and xPos >= 31 and xPos < 41 then
+      if stpeer[(yPos-2)+(16*(scroll))] == "N/A(Mined)" then
         --possibly link to a block later?
       else
-        subject = stpeer[yPos-2]
+        subject = stpeer[(yPos-2)+(16*(scroll))]
+        scroll = 0
       end
+    end
+    if yPos == 19 and xPos >= 32 and xPos <= 36 then
+      scroll = 0
+    end
+    if yPos == 19 and xPos >= 38 and xPos <= 41 then
+      scroll = math.max(0,scroll-1)
+    end
+    if yPos == 19 and xPos >= 43 and xPos <= 46 then
+      scroll = math.min(lastpage,scroll+1)
+    end
+    if yPos == 19 and xPos >= 48 then
+      scroll = lastpage
+    end
+    if yPos == 1 and xPos >= 17 then
+      page = 6
     end
   elseif page == 3 then
     if xPos >= 17 then
@@ -332,15 +357,59 @@ function wallet()
         term.setTextColor(32768)
       else
         term.setTextColor(16384)
-        term.write("Connection timed out")
+        term.write(transaction)
         term.setTextColor(32768)
       end
-      os.sleep(2.5)
+      os.sleep(2.5) --lower this if you do tons of transfers
+    end
+  
+  elseif page == 4 then
+    if yPos == 3 and xPos >= 19 and xPos <= 31 then
+      page = 5
+      scroll = 0
+    end
+    if yPos == 3 and xPos >= 35 and xPos <= 48 then
+      page = 6
+    end
+    if yPos == 4 and xPos >= 35 and xPos <= 42 then
+      page = 7
+    end
+  elseif page == 5 then
+    if yPos > 2 and xPos >= 27 and xPos <= 36 then
+      page = 2
+      subject = blkpeer[(yPos-2)]
+      scroll = 0
+    end
+  elseif page == 6 then
+    term.setCursorPos(18,1)
+    term.write("                       ")
+    term.setCursorPos(18,1)
+    term.write("ADDRESS ")
+    subject = read()
+    if string.len(subject) == 10 then
+      page = 2
+      scroll = 0
+    else
+      page = 6
+    end
+  elseif page == 7 then
+    if yPos > 2 and yPos <= 18 and xPos >= 20 and xPos < 30 then
+      if blkpeer[(yPos-2)] == "N/A(Burnt)" then
+        --possibly link to null later?
+      else
+        page = 2
+        subject = blkpeer[(yPos-2)]
+        scroll = 0
+      end
     end
   end
 end
 function drawTab(text)
   term.setBackgroundColor(512)
+  term.write(text)
+end
+function drawBtn(text)
+  term.setBackgroundColor(32)
   term.write(text)
 end
 function hud()
@@ -370,11 +439,11 @@ function hud()
   term.setCursorPos(3,9)
   drawTab(" Send Krist ")
   term.setCursorPos(3,11)
-  drawTab("")
+  --drawTab("  KW Tools  ")
   term.setCursorPos(3,13)
-  --drawTab(" Blockchain ")
+  drawTab(" Blockchain ")
   term.setCursorPos(3,15)
-  drawTab("")
+  --drawTab("   Config   ")
   term.setCursorPos(3,17)
   drawTab("    Exit    ")
   term.setBackgroundColor(1)
@@ -387,6 +456,7 @@ function hud()
     term.setCursorPos(19,3)
     term.write("Your balance: ")
     term.setTextColor(1024)
+    if string.len(tostring(balance)) == 3 then balance = 0 end
     term.write(tostring(balance).." KST")
     term.setTextColor(32768)
     term.setCursorPos(19,5)
@@ -394,6 +464,7 @@ function hud()
     subbal = http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..subject).readAll()
     subtxs = http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..subject).readAll()
     term.setCursorPos(18,1)
+    if subtxs == "end" then subbal = 0 end
     term.write("ADDRESS "..subject.." - "..subbal.." KST")
     term.setCursorPos(18,3)
     --term.write(subtxs)
@@ -401,39 +472,79 @@ function hud()
     term.setBackgroundColor(256)
     term.write(" Time         Peer           Value ")
     term.setBackgroundColor(1)
-    local tx = 0
-    local s = 0
-    local ar = 0
-    repeat
-      tx = tx + 1
-      stdate[tx] = string.sub(subtxs,1,12)
-      subtxs = string.sub(subtxs,13)
-      stpeer[tx] = string.sub(subtxs,1,10)
-      subtxs = string.sub(subtxs,11)
-      stval[tx] = tonumber(string.sub(subtxs,1,9))
-      subtxs = string.sub(subtxs,10)
-      if stpeer[tx] == subject then stval[tx] = 0 end
-    until string.len(subtxs) == 0
-    repeat
-      ar = ar + 1
-      term.setTextColor(32768)
-      term.setCursorPos(18,2+ar)
-      term.write(stdate[ar])
-      if stpeer[ar] ~= "N/A(Mined)" then term.setTextColor(512) end
-      term.setCursorPos(31,2+ar)
-      term.write(stpeer[ar])
-      term.setCursorPos(50-string.len(tostring(math.abs(stval[ar]))),2+ar)
-      if stval[ar] > 0 then
-        term.setTextColor(8192)
-        term.write("+")
-      elseif stval[ar] < 0 then
-        term.setTextColor(16384)
-      else
+    if subtxs ~= "end" then
+      local tx = 0
+      local s = 0
+      ar = 16*scroll
+      repeat
+        tx = tx + 1
+        stdate[tx] = string.sub(subtxs,1,12)
+        subtxs = string.sub(subtxs,13)
+        stpeer[tx] = string.sub(subtxs,1,10)
+        subtxs = string.sub(subtxs,11)
+        stval[tx] = tonumber(string.sub(subtxs,1,9))
+        subtxs = string.sub(subtxs,10)
+        if stpeer[tx] == subject then stval[tx] = 0 end
+      until string.len(subtxs) == 3
+      repeat
+        ar = ar + 1
         term.setTextColor(32768)
-        term.write(" ")
+        term.setCursorPos(18,2+ar-(16*(scroll)))
+        term.write(stdate[ar])
+        if stpeer[ar] ~= "N/A(Mined)" then term.setTextColor(512) end
+        if stpeer[ar] == subject then term.setTextColor(32768) end
+        term.setCursorPos(31,2+ar-(16*(scroll)))
+        term.write(stpeer[ar])
+        term.setCursorPos(50-string.len(tostring(math.abs(stval[ar]))),2+ar-(16*(scroll)))
+        if stval[ar] > 0 then
+          term.setTextColor(8192)
+          term.write("+")
+        elseif stval[ar] < 0 then
+          term.setTextColor(16384)
+        else
+          term.setTextColor(32768)
+          term.write(" ")
+        end
+        term.write(tostring(stval[ar]))
+      until ar == math.min(tx,16*(scroll+1))
+      term.setBackgroundColor(256)
+      term.setCursorPos(17,19)
+      term.write("                                   ")
+      term.setCursorPos(17,19)
+      term.setTextColor(32768)
+      lastpage = math.floor((tx-1)/16)
+      if (1+lastpage) < 100 then maxspace = maxspace.." " end
+      if (1+lastpage) < 10 then maxspace = maxspace.." " end
+      if (1+scroll) < 100 then pagespace = pagespace.." " end
+      if (1+scroll) < 10 then pagespace = pagespace.." " end
+      term.write(" Page "..pagespace..(1+scroll).."/"..maxspace..(1+lastpage))
+      pagespace = ""
+      maxspace = ""
+      term.setCursorPos(32,19)
+      term.setTextColor(128)
+      term.write("First Prev Next Last")
+      if (scroll > 0) then
+        term.setCursorPos(32,19)
+        term.setTextColor(2048)
+        term.write("First Prev")
       end
-      term.write(tostring(stval[ar]))
-    until ar == tx
+      if (scroll < lastpage and tx > 16) then
+        term.setCursorPos(43,19)
+        term.setTextColor(2048)
+        term.write("Next Last")
+      end
+    else
+      term.write("No transactions to display!")
+      term.setBackgroundColor(256)
+      term.setCursorPos(17,19)
+      term.write("                                   ")
+      term.setCursorPos(17,19)
+      term.setTextColor(32768)
+      term.write(" Page   1/  1")
+      term.setCursorPos(32,19)
+      term.setTextColor(128)
+      term.write("First Prev Next Last")
+    end
   elseif page == 3 then
     term.setCursorPos(19,2)
     term.write("Your address: ")
@@ -451,6 +562,128 @@ function hud()
     term.setCursorPos(19,6)
     term.write("Amount (KST): ")
     term.write("                   ")
+  elseif page == 4 then
+    term.setCursorPos(19,2)
+    term.write("Mining          Addresses")
+    term.setTextColor(512)
+    term.setCursorPos(19,3)
+    term.write("Latest blocks   Address lookup")
+    term.setCursorPos(19,4)
+    --term.write("Lowest hashes   Rich list")
+    term.write("                Rich list")
+    term.setCursorPos(19,5)
+    term.write("   ")
+    term.setTextColor(32768)
+    term.setCursorPos(19,7)
+    --term.write("Economy         Transactions")
+    term.setTextColor(512)
+    term.setCursorPos(19,8)
+    --term.write("KST issuance    Latest transfers")
+    term.setCursorPos(19,9)
+    --term.write("KST distrib.    Largest transfers")
+  elseif page == 5 then
+    local blocks = http.get("http://65.26.252.225/quest/dia/krist/index.php?blocks").readAll()
+    local tx = 0
+    ar = 0
+    local height = string.sub(blocks,1,8)
+    local blktime = {}
+    blkpeer = {}
+    local blkhash = {}
+    height = tonumber(string.sub(blocks,1,8))
+    blocks = string.sub(blocks,9)
+    local today = string.sub(blocks,1,10)
+    blocks = string.sub(blocks,11)
+    repeat
+      tx = tx + 1
+      blktime[tx] = string.sub(blocks,1,8)
+      blocks = string.sub(blocks,9)
+      blkpeer[tx] = string.sub(blocks,1,10)
+      blocks = string.sub(blocks,11)
+      blkhash[tx] = string.sub(blocks,1,12)
+      blocks = string.sub(blocks,13)
+      if stpeer[tx] == subject then stval[tx] = 0 end
+    until string.len(blocks) == 0
+    term.setCursorPos(18,1)
+    term.write("Height: "..tostring(height))
+    term.setCursorPos(36,1)
+    term.write("Date: "..today)
+    term.setCursorPos(18,3)
+    --term.write(subtxs)
+    term.setCursorPos(17,2)
+    term.setBackgroundColor(256)
+    term.write(" Time     Miner      Hash          ")
+    ----------(" 00:00:00 0000000000 000000000000 ")
+    term.setBackgroundColor(1)
+    repeat
+      ar = ar + 1
+      term.setCursorPos(18,2+ar)
+      term.write(blktime[ar])
+      if blkpeer[ar] ~= "N/A(Burnt)" then term.setTextColor(512) end
+      term.setCursorPos(27,2+ar)
+      term.write(blkpeer[ar])
+      term.setTextColor(32768)
+      term.setCursorPos(38,2+ar)
+      term.write(blkhash[ar])
+    until ar == math.min(tx,17*(scroll+1))
+  elseif page == 6 then
+    term.setCursorPos(17,2)
+    term.setBackgroundColor(256)
+    term.write(" Time         Peer           Value ")
+    term.setBackgroundColor(256)
+    term.setCursorPos(17,19)
+    term.write("                                   ")
+    term.setCursorPos(17,19)
+    term.setTextColor(32768)
+    term.write(" Page    /")
+    term.setCursorPos(32,19)
+    term.setTextColor(128)
+    term.write("First Prev Next Last")
+    term.setBackgroundColor(1)
+    term.setCursorPos(18,1)
+    term.write("ADDRESS (click to edit)")
+  elseif page == 7 then
+    local blocks = http.get("http://65.26.252.225/quest/dia/krist/index.php?richapi").readAll()
+    local tx = 0
+    ar = 0
+    local height = string.sub(blocks,1,8)
+    local blktime = {}
+    blkpeer = {}
+    local blkhash = {}
+    local total = 0
+    repeat
+      tx = tx + 1
+      blkpeer[tx] = string.sub(blocks,1,10)
+      blocks = string.sub(blocks,11)
+      blktime[tx] = tonumber(string.sub(blocks,1,8))
+      blocks = string.sub(blocks,9)
+      blkhash[tx] = string.sub(blocks,1,11)
+      blocks = string.sub(blocks,12)
+      --total = total + math.abs(blkpeer[tx])
+    until string.len(blocks) == 0
+    
+    term.setCursorPos(18,1)
+    term.write("Krist address rich list")
+    term.setCursorPos(18,3)
+    --term.write(subtxs)
+    term.setCursorPos(17,2)
+    term.setBackgroundColor(256)
+    term.write("R# Address     Balance First seen  ")
+    ----------(" 1 0000000000 99999999 01 Jan 1970")
+    term.setBackgroundColor(1)
+    repeat
+      ar = ar + 1
+      term.setCursorPos(17,2+ar)
+      if ar < 10 then term.write(" ") end
+      term.write(ar)
+      term.setCursorPos(20,2+ar)
+      if blkpeer[ar] ~= "N/A(Burnt)" then term.setTextColor(512) end
+      term.write(blkpeer[ar])
+      term.setTextColor(32768)
+      term.setCursorPos(39-string.len(tostring(math.abs(blktime[ar]))),2+ar)
+      term.write(blktime[ar])
+      term.setCursorPos(40,2+ar)
+      term.write(blkhash[ar])
+    until ar == 16
   end
 end
 boot()
