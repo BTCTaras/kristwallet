@@ -645,7 +645,7 @@ function hud()
     local recenttransactions = http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..address.."&overview").readAll()
     local txtype = 0
     local graphics = 0
-    if string.len(recenttransactions) > 0 then
+    if string.len(recenttransactions) > 25 then
       repeat
         if string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == "N/A(Mined)" then txtype = 1
         elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == address then txtype = 4
