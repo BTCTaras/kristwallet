@@ -3,12 +3,13 @@
 --but it may be dangerous, and most importantly,
 --may cause LOSS OF KRIST! No making changes
 --unless you know absolutely what you're doing.
-local version = 4
+local version = 5
 local balance = 0
 local totalsent = 0
 local totalreceived = 0
 local MOD = 2^32
 local MODM = MOD-1
+local gui = 0
 local page = 0
 local lastpage = 0
 local scroll = 0
@@ -29,6 +30,7 @@ local ar = 0
 local function boot()
   print("Starting KristWallet version "..tostring(version))
   update()
+  settle()
   openwallet()
   repeat
     wallet()
@@ -51,6 +53,10 @@ function update()
     --print("Up to date!")
     --print("Version "..tostring(version))
   end  
+end
+function settle()
+  if term.isColor() then gui = 1 end
+  if term.isColor() and pocket then gui = 2 end
 end
 local function drawKrist()
   posx, posy = term.getCursorPos()
@@ -268,7 +274,7 @@ local function hextobase36(j)
   elseif j <= 237 then return "x"
   elseif j <= 244 then return "y"
   elseif j <= 251 then return "z"
-  else return "e" -- because why the fuck not
+  else return "e"
   end
 end
 function openwallet()
@@ -288,7 +294,7 @@ function openwallet()
   until krists == 16
   term.setBackgroundColor(8)
   term.setTextColor(32768)
-  term.setCursorPos(6,6) -- An X of 22 puts our "Password:" in the exact center
+  term.setCursorPos(6,6)
   term.write("Password:")
   term.setCursorPos(6,8)
          -----|---+---------+---------+---------+-----|---+-
@@ -310,7 +316,7 @@ function openwallet()
   password = sha256("KRISTWALLET"..password)
   term.clear()
   term.setCursorPos(1,1)
-  page = 1
+  page = 1+gui*(10*(gui-1))
   masterkey = password.."-000"
   addressv1 = string.sub(sha256(masterkey),0,10)
 --  local protein = {}
@@ -338,30 +344,124 @@ function openwallet()
   address = addressv1 --temporary
   balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
 end
+local function postgraphic(px,py,id)
+  term.setCursorPos(px,py)
+  if id == 0 then drawKrist()
+  elseif id == 1 then
+    --Mined Krist
+    term.setCursorPos(px+1,py)
+    term.setBackgroundColor(256)
+    term.setTextColor(128)
+    term.write("/T\\")
+    term.setCursorPos(px,py+1)
+    term.write("/")
+    term.setCursorPos(px+2,py+1)
+    term.write("|")
+    term.setCursorPos(px+4,py+1)
+    term.write("\\")
+    term.setCursorPos(px+2,py+2)
+    term.write("|")
+    term.setCursorPos(px+2,py+3)
+    term.write("|")
+    term.setCursorPos(px+4,py+2)
+    drawKrist()
+  elseif id == 2 then
+    term.setCursorPos(px,py+2)
+    term.setBackgroundColor(256)
+    term.setTextColor(16384)
+    term.write(" ")
+    term.setCursorPos(px+1,py+3)
+    term.write("    ")
+    term.setCursorPos(px+5,py+2)
+    term.write(" ")
+    term.setBackgroundColor(1)
+    term.setCursorPos(px+2,py)
+    term.write("/\\")
+    term.setCursorPos(px+2,py+1)
+    term.write("||")
+  elseif id == 3 then
+    term.setCursorPos(px,py+2)
+    term.setBackgroundColor(256)
+    term.setTextColor(8192)
+    term.write(" ")
+    term.setCursorPos(px+1,py+3)
+    term.write("    ")
+    term.setCursorPos(px+5,py+2)
+    term.write(" ")
+    term.setBackgroundColor(1)
+    term.setCursorPos(px+2,py)
+    term.write("||")
+    term.setCursorPos(px+2,py+1)
+    term.write("\\/")
+  elseif id == 4 then
+    term.setCursorPos(px,py+2)
+    term.setBackgroundColor(256)
+    term.setTextColor(16)
+    term.write(" ")
+    term.setCursorPos(px+1,py+3)
+    term.write("    ")
+    term.setCursorPos(px+5,py+2)
+    term.write(" ")
+    term.setBackgroundColor(1)
+    term.setCursorPos(px+1,py)
+    term.write("/\\||")
+    term.setCursorPos(px+1,py+1)
+    term.write("||\\/")
+  elseif id == 5 then
+    term.setCursorPos(px+1,py)
+    term.setBackgroundColor(256)
+    term.setTextColor(128)
+    term.write(" v1 ")
+    term.setCursorPos(px+2,py+1)
+    term.setBackgroundColor(1)
+    term.setTextColor(2048)
+    term.write("||")
+    term.setCursorPos(px+2,py+2)
+    term.write("\\/")
+    term.setCursorPos(px+1,py+3)
+    term.setBackgroundColor(16)
+    term.setTextColor(32768)
+    term.write(" v2 ")
+  end
+end
 function wallet()
   hud()
   local event, button, xPos, yPos = os.pullEvent("mouse_click")
   --button: 1 = left, 2 = right
-  if yPos == 5 and xPos >= 3 and xPos <= 14 then
-    page = 1
-    balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+  if gui == 1 then
+    if yPos == 5 and xPos >= 3 and xPos <= 14 then
+      page = 1
+      balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+    end
+    if yPos == 7 and xPos >= 3 and xPos <= 14 then
+      page = 2
+      subject = address
+      scroll = 0
+    end
+    if yPos == 9 and xPos >= 3 and xPos <= 14 then
+      page = 3
+      balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+    end
+    if yPos == 13 and xPos >= 3 and xPos <= 14 then
+      page = 4
+    end
+    if yPos == 17 and xPos >= 3 and xPos <= 14 then
+      page = 0
+    end
+  elseif gui == 2 then
+    if yPos == 2 and xPos >= 19 and xPos <= 24 then
+      page = 0
+    end
   end
-  if yPos == 7 and xPos >= 3 and xPos <= 14 then
-    page = 2
-    subject = address
-    scroll = 0
-  end
-  if yPos == 9 and xPos >= 3 and xPos <= 14 then
-    page = 3
-    balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
-  end
-  if yPos == 13 and xPos >= 3 and xPos <= 14 then
-    page = 4
-  end
-  if yPos == 17 and xPos >= 3 and xPos <= 14 then
-    page = 0
-  end
-  if page == 2 then
+  if page == 1 then
+    --term.setCursorPos(26,7+(5*graphics))
+    if (yPos-7)%5 == 0 and yPos >= 7 and xPos >= 26 and xPos <= 35 then
+      subject = string.sub(http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..address.."&overview").readAll(),13+(31*((yPos-7)/5)),22+(31*((yPos-7)/5)))
+      if string.len(subject) == 10 and subject ~= "N/A(Mined)" then
+        page = 2
+      end
+    end
+  elseif page == 2 then
     if yPos > 2 and yPos <= 2+ar-(16*(scroll)) and xPos >= 31 and xPos < 41 then
       if stpeer[(yPos-2)+(16*(scroll))] == "N/A(Mined)" then
         --possibly link to a block later?
@@ -472,39 +572,63 @@ function hud()
   term.setBackgroundColor(1)
   term.setTextColor(32768)
   term.clear()
-  local sidebar = 1
-  while sidebar < 51 do
-    term.setCursorPos(1,sidebar)
+  if gui == 1 then
+    local sidebar = 1
+    while sidebar < 51 do
+      term.setCursorPos(1,sidebar)
+      term.setBackgroundColor(8)
+      term.write("                ")
+      sidebar = sidebar + 1
+    end
+    term.setCursorPos(2,2)
+    drawKrist()
     term.setBackgroundColor(8)
-    term.write("                ")
-    sidebar = sidebar + 1
+    term.setTextColor(32768)
+    term.write(" KristWallet")
+    term.setCursorPos(5,3)
+    term.setTextColor(2048)
+    term.write("release "..version.."")
+    term.setCursorPos(2,19)
+    term.write("by cossacksson")
+    term.setTextColor(32768)
+    term.setCursorPos(3,5)
+    drawTab("  Overview  ")
+    term.setCursorPos(3,7)
+    drawTab("Transactions")
+    term.setCursorPos(3,9)
+    drawTab(" Send Krist ")
+    term.setCursorPos(3,11)
+    --drawTab("  KW Tools  ")
+    term.setCursorPos(3,13)
+    drawTab("   Ledger   ")
+    term.setCursorPos(3,15)
+    --drawTab("   Config   ")
+    term.setCursorPos(3,17)
+    drawTab("    Exit    ")
+    term.setBackgroundColor(1)
+  elseif gui == 2 then
+    term.setCursorPos(1,1)
+    term.setBackgroundColor(8)
+    term.write("                          ")
+    term.setCursorPos(1,2)
+    term.write("                          ")
+    term.setCursorPos(1,3)
+    term.write("                          ")
+    term.setCursorPos(1,4)
+    term.write("                          ")
+    term.setCursorPos(2,2)
+    drawKrist()
+    term.setBackgroundColor(8)
+    term.setTextColor(32768)
+    term.write(" KristWallet")
+    term.setCursorPos(5,3)
+    term.setTextColor(2048)
+    term.write("release "..version.."")
+    term.setCursorPos(19,2)
+    term.setBackgroundColor(16384)
+    term.setTextColor(32768)
+    term.write(" Exit ")
   end
-  term.setCursorPos(2,2)
-  drawKrist()
-  term.setBackgroundColor(8)
-  term.setTextColor(32768)
-  term.write(" KristWallet")
-  term.setCursorPos(5,3)
-  term.setTextColor(2048)
-  term.write("release "..version.."")
-  term.setCursorPos(2,19)
-  term.write("by cossacksson")
-  term.setTextColor(32768)
-  term.setCursorPos(3,5)
-  drawTab("  Overview  ")
-  term.setCursorPos(3,7)
-  drawTab("Transactions")
-  term.setCursorPos(3,9)
-  drawTab(" Send Krist ")
-  term.setCursorPos(3,11)
-  --drawTab("  KW Tools  ")
-  term.setCursorPos(3,13)
-  drawTab(" Blockchain ")
-  term.setCursorPos(3,15)
-  --drawTab("   Config   ")
-  term.setCursorPos(3,17)
-  drawTab("    Exit    ")
-  term.setBackgroundColor(1)
   if page == 1 then
     term.setCursorPos(19,2)
     term.write("Your address: ")
@@ -518,6 +642,48 @@ function hud()
     term.write(tostring(balance).." KST")
     term.setTextColor(32768)
     term.setCursorPos(19,5)
+    local recenttransactions = http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..address.."&overview").readAll()
+    local txtype = 0
+    local graphics = 0
+    if string.len(recenttransactions) > 0 then
+      repeat
+        if string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == "N/A(Mined)" then txtype = 1
+        elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == address then txtype = 4
+        elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == addressv1 then txtype = 5
+        elseif tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) < 0 then txtype = 2
+        elseif tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) > 0 then txtype = 3
+        end
+        postgraphic(19,5+(5*graphics),txtype)
+        term.setCursorPos(26,5+(5*graphics))
+        term.setBackgroundColor(1)
+        term.setTextColor(32768)
+        if txtype == 1 then term.write("Mined")
+        elseif txtype == 2 then term.write("Sent")
+        elseif txtype == 3 then term.write("Received")
+        elseif txtype == 4 then term.write("Tumbled")
+        elseif txtype == 5 then term.write("Imported")
+        end
+        term.setCursorPos(26,6+(5*graphics))
+        if txtype == 4 then
+          term.setTextColor(32768)
+        elseif tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) > 0 then
+          term.setTextColor(8192)
+          term.write("+")
+        elseif tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) == 0 then
+          term.setTextColor(16)
+        else
+          term.setTextColor(16384)
+        end
+        term.write(tostring(tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics)))).." KST")
+        term.setCursorPos(26,7+(5*graphics))
+        term.setTextColor(512)
+        if txtype > 1 then term.write(string.sub(recenttransactions,13+(31*graphics),22+(31*graphics))) end
+        term.setCursorPos(26,8+(5*graphics))
+        term.setTextColor(128)
+        term.write(string.sub(recenttransactions,1+(31*graphics),12+(31*graphics)))
+        graphics = graphics + 1
+      until graphics >= math.floor(string.len(recenttransactions)/32)
+    end
   elseif page == 2 then
     subbal = http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..subject).readAll()
     subtxs = http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..subject).readAll()
