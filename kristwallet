@@ -23,7 +23,7 @@ local ar = 0
 local function boot()
   print("Starting KristWallet v"..tostring(version))
   update()
-  if latest < version then
+  if latest <= version then
     settle()
     openwallet()
     repeat
