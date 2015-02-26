@@ -1,12 +1,6 @@
---This file is not intended to be edited at
---all in game. You are allowed to do so,
---but it may be dangerous, and most importantly,
---may cause LOSS OF KRIST! No making changes
---unless you know absolutely what you're doing.
-local version = 5
+local version = 7
+local latest = 0
 local balance = 0
-local totalsent = 0
-local totalreceived = 0
 local MOD = 2^32
 local MODM = MOD-1
 local gui = 0
@@ -26,27 +20,28 @@ local blkpeer = {}
 local pagespace = ""
 local maxspace = ""
 local ar = 0
-
 local function boot()
-  print("Starting KristWallet version "..tostring(version))
+  print("Starting KristWallet v"..tostring(version))
   update()
-  settle()
-  openwallet()
-  repeat
-    wallet()
-  until page == 0
-  term.setBackgroundColor(32768)
-  term.setTextColor(16)
-  term.clear()
-  term.setCursorPos(1,1)
+  if latest < version then
+    settle()
+    openwallet()
+    repeat
+      wallet()
+    until page == 0
+    term.setBackgroundColor(32768)
+    term.setTextColor(16)
+    term.clear()
+    term.setCursorPos(1,1)
+  end
 end
 function update()
-  local latest = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getwalletversion").readAll())
+  latest = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getwalletversion").readAll())
   if latest > version then
     print("An update is available!")
     local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
     local nextversion = http.get("http://65.26.252.225/quest/dia/krist/kristwallet").readAll()
-    print("Installed update. Run this program again to start version "..latest..".")
+    print("Installed update. Run this program again to start v"..latest..".")
     me.write(nextversion)
     me.close()
   else
@@ -319,29 +314,29 @@ function openwallet()
   page = 1+gui*(10*(gui-1))
   masterkey = password.."-000"
   addressv1 = string.sub(sha256(masterkey),0,10)
---  local protein = {}
---  local stick = sha256(sha256(masterkey))
+  local protein = {}
+  local stick = sha256(sha256(masterkey))
   local n = 0
---  local link = 0
+  local link = 0
   repeat
---    if n < 9 then protein[n] = string.sub(stick,0,2)
---    stick = sha256(sha256(stick)) end
+    if n < 9 then protein[n] = string.sub(stick,0,2)
+    stick = sha256(sha256(stick)) end
     n = n + 1
   until n == 9
---  address = 'k' -- all v2 addresses begin with k (so that we can tell what version it is, theoretical v3 addresses may start with w or something)
+  address = 'k'
   n = 0
   repeat
---    link = tonumber(string.sub(stick,1+(2*n),2+(2*n)),16) % 9
---    print(link)
---    if string.len(protein[link]) ~= 0 then
---      address = address .. hextobase36(tonumber(protein[link],16))
---      protein[link] = ''
+    link = tonumber(string.sub(stick,1+(2*n),2+(2*n)),16) % 9
+    if string.len(protein[link]) ~= 0 then
+      address = address .. hextobase36(tonumber(protein[link],16))
+      protein[link] = ''
       n = n + 1
---    else
---      stick = sha256(stick)
---    end
+    else
+      stick = sha256(stick)
+    end
   until n == 9
-  address = addressv1 --temporary
+  balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..addressv1).readAll())
+  if balance > 0 then local transaction = http.get("http://65.26.252.225/quest/dia/krist/index.php?pushtx&q="..address.."&pkey="..masterkey.."&amt="..balance).readAll() end
   balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
 end
 local function postgraphic(px,py,id)
@@ -366,6 +361,7 @@ local function postgraphic(px,py,id)
     term.setCursorPos(px+4,py+2)
     drawKrist()
   elseif id == 2 then
+    --Sent Krist
     term.setCursorPos(px,py+2)
     term.setBackgroundColor(256)
     term.setTextColor(16384)
@@ -380,6 +376,7 @@ local function postgraphic(px,py,id)
     term.setCursorPos(px+2,py+1)
     term.write("||")
   elseif id == 3 then
+    --Received Krist
     term.setCursorPos(px,py+2)
     term.setBackgroundColor(256)
     term.setTextColor(8192)
@@ -394,6 +391,7 @@ local function postgraphic(px,py,id)
     term.setCursorPos(px+2,py+1)
     term.write("\\/")
   elseif id == 4 then
+    --Sent to yourself
     term.setCursorPos(px,py+2)
     term.setBackgroundColor(256)
     term.setTextColor(16)
@@ -408,6 +406,7 @@ local function postgraphic(px,py,id)
     term.setCursorPos(px+1,py+1)
     term.write("||\\/")
   elseif id == 5 then
+    --Swept from v1 address
     term.setCursorPos(px+1,py)
     term.setBackgroundColor(256)
     term.setTextColor(128)
@@ -427,7 +426,6 @@ end
 function wallet()
   hud()
   local event, button, xPos, yPos = os.pullEvent("mouse_click")
-  --button: 1 = left, 2 = right
   if gui == 1 then
     if yPos == 5 and xPos >= 3 and xPos <= 14 then
       page = 1
@@ -454,7 +452,6 @@ function wallet()
     end
   end
   if page == 1 then
-    --term.setCursorPos(26,7+(5*graphics))
     if (yPos-7)%5 == 0 and yPos >= 7 and xPos >= 26 and xPos <= 35 then
       subject = string.sub(http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..address.."&overview").readAll(),13+(31*((yPos-7)/5)),22+(31*((yPos-7)/5)))
       if string.len(subject) == 10 and subject ~= "N/A(Mined)" then
@@ -491,10 +488,8 @@ function wallet()
       local recipient = read()
       term.setCursorPos(33,6)
       local amount = read()
-      local transaction = http.get("http://65.26.252.225/quest/dia/krist/index.php?pushtx&q="..recipient.."&pkey="..masterkey.."&amt="..amount).readAll()
+      local transaction = http.get("http://65.26.252.225/quest/dia/krist/index.php?pushtx2&q="..recipient.."&pkey="..masterkey.."&amt="..amount).readAll()
       balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
-      --term.setCursorPos(33,6)
-      --term.write("Output: "..transaction)
       term.setCursorPos(19,8)
       if transaction == "Success" then
         term.setTextColor(8192)
@@ -503,7 +498,6 @@ function wallet()
       elseif string.sub(transaction,0,5) == "Error" then
         local problem = "An unknown error happened"
         local code = tonumber(string.sub(transaction,6,10))
-        --problem = tostring(code)
         if code == 1 then problem = "Insufficient funds available" end
         if code == 2 then problem = "Not enough KST in transaction" end
         if code == 3 then problem = "Can't comprehend amount to send" end
@@ -690,8 +684,6 @@ function hud()
     term.setCursorPos(18,1)
     if subtxs == "end" then subbal = 0 end
     term.write("ADDRESS "..subject.." - "..subbal.." KST")
-    term.setCursorPos(18,3)
-    --term.write(subtxs)
     term.setCursorPos(17,2)
     term.setBackgroundColor(256)
     term.write(" Time         Peer           Value ")
@@ -832,8 +824,6 @@ function hud()
     term.write("Height: "..tostring(height))
     term.setCursorPos(36,1)
     term.write("Date: "..today)
-    term.setCursorPos(18,3)
-    --term.write(subtxs)
     term.setCursorPos(17,2)
     term.setBackgroundColor(256)
     term.write(" Time     Miner      Hash          ")
@@ -874,7 +864,6 @@ function hud()
     local blktime = {}
     blkpeer = {}
     local blkhash = {}
-    local total = 0
     repeat
       tx = tx + 1
       blkpeer[tx] = string.sub(blocks,1,10)
@@ -883,17 +872,12 @@ function hud()
       blocks = string.sub(blocks,9)
       blkhash[tx] = string.sub(blocks,1,11)
       blocks = string.sub(blocks,12)
-      --total = total + math.abs(blkpeer[tx])
     until string.len(blocks) == 0
-    
     term.setCursorPos(18,1)
     term.write("Krist address rich list")
-    term.setCursorPos(18,3)
-    --term.write(subtxs)
     term.setCursorPos(17,2)
     term.setBackgroundColor(256)
     term.write("R# Address     Balance First seen  ")
-    ----------(" 1 0000000000 99999999 01 Jan 1970")
     term.setBackgroundColor(1)
     repeat
       ar = ar + 1
@@ -909,6 +893,20 @@ function hud()
       term.setCursorPos(40,2+ar)
       term.write(blkhash[ar])
     until ar == 16
+  elseif page == 21 then
+    term.setBackgroundColor(1)
+    term.setCursorPos(4,6)
+    term.write("Address - ")
+    term.setTextColor(16384)
+    term.write(address)
+    term.setTextColor(32768)
+    term.setCursorPos(4,7)
+    term.write("Balance - ")
+    term.setTextColor(1024)
+    if tostring(balance) == 'nil' then balance = 0 end
+    term.write(tostring(balance).." KST")
+    term.setTextColor(32768)
+    term.setCursorPos(3,9)
   end
 end
 boot()
