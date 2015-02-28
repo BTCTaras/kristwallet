@@ -1,6 +1,9 @@
-local version = 7
+--KristWallet by cossacksson
+local version = 8
 local latest = 0
 local balance = 0
+local balance2 = 0
+local balance3 = 0
 local MOD = 2^32
 local MODM = MOD-1
 local gui = 0
@@ -8,8 +11,11 @@ local page = 0
 local lastpage = 0
 local scroll = 0
 local masterkey = ""
-local addressv1 = ""
+local doublekey = ""
 local address = ""
+local addressv1 = ""
+local addressdv = ""
+local addresslv = ""
 local subject = ""
 local subbal = 0
 local subtxs = ""
@@ -20,34 +26,79 @@ local blkpeer = {}
 local pagespace = ""
 local maxspace = ""
 local ar = 0
+local amt = 0
 local function boot()
+  checkdir()
+  checkdir()
   print("Starting KristWallet v"..tostring(version))
+  log("Started KristWallet v"..tostring(version))
   update()
-  if latest <= version then
+  if readconfig("enabled") and latest <= version then
     settle()
     openwallet()
-    repeat
+    while page ~= 0 do
       wallet()
-    until page == 0
+    end
     term.setBackgroundColor(32768)
     term.setTextColor(16)
     term.clear()
     term.setCursorPos(1,1)
+    log("KristWallet closed safely")
+  else
+    if not readconfig("enabled") then print("KristWallet is disabled on this computer.") log("Disabled, shutting down") end
+  end
+  if readconfig("rebootonexit") then
+    log("Rebooted computer")
+    os.reboot()
   end
 end
 function update()
-  latest = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getwalletversion").readAll())
+  latest = tonumber(http.get(readconfig("versionserver")).readAll())
   if latest > version then
     print("An update is available!")
-    local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
-    local nextversion = http.get("http://65.26.252.225/quest/dia/krist/kristwallet").readAll()
-    print("Installed update. Run this program again to start v"..latest..".")
-    me.write(nextversion)
-    me.close()
+    log("Discovered update")
+      if readconfig("autoupdate") then
+      local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
+      local nextversion = http.get(readconfig("updateserver")).readAll()
+      print("Installed update. Run this program again to start v"..latest..".")
+      me.write(nextversion)
+      me.close()
+      log("Installed update")
+    else
+      log("Ignored update")
+      latest = -2
+    end
   else
-    --print("Up to date!")
-    --print("Version "..tostring(version))
+    log("No updates found")
   end  
+end
+function log(text)
+  logfile = fs.open("kst/log","a")
+  logfile.writeLine(tostring(os.day()).."-"..tostring(os.time()).."/"..text)
+  logfile.close()
+end
+function checkfile(path,default)
+  if not fs.exists("kst/"..path) then
+    file = fs.open("kst/"..path,"w")
+    file.writeLine(default)
+    file.close()
+    log("Created file "..path)
+    return false
+  else
+    return true
+  end
+end
+function readconfig(path)
+  if fs.exists("kst/"..path) then
+    file = fs.open("kst/"..path,"r")
+    local context = file.readAll()
+    file.close()
+    if context == "true" then return true end
+    if context == "false" then return false end
+    return context
+  else
+    print("What the fuck")
+  end
 end
 function settle()
   if term.isColor() then gui = 1 end
@@ -232,6 +283,10 @@ local function sha256(msg)
         return str2hexa(num2s(H[1], 4) .. num2s(H[2], 4) .. num2s(H[3], 4) .. num2s(H[4], 4) ..
                 num2s(H[5], 4) .. num2s(H[6], 4) .. num2s(H[7], 4) .. num2s(H[8], 4))
 end
+local function panic()
+  page = 0
+  log("Panicking! Shutting down kristwallet.")
+end
 local function hextobase36(j)
   if j <= 6 then return "0"
   elseif j <= 13 then return "1"
@@ -272,6 +327,78 @@ local function hextobase36(j)
   else return "e"
   end
 end
+function scribe(term)
+  local language = readconfig("language")
+  if fs.isDir("kst/lang/"..language) then
+    if fs.exists("kst/lang/"..language.."/"..term) then
+      return readconfig("lang/"..language.."/"..term)
+    else
+      return "kst/lang/en/"..term
+    end
+  else
+    log("Can't find language!")
+    panic()
+  end
+  return "?"
+end
+function checkdir()
+  if fs.isDir("kst") then
+    math.randomseed(os.time()) 
+    checkfile("log","KristWallet log file")
+    checkfile("enabled","true")
+    checkfile("sweepv1","true")
+    checkfile("appendhashes","true")
+    checkfile("autoupdate","true")
+    checkfile("whitelisted","false")
+    checkfile("rebootonexit","false")
+    checkfile("locksettings","false")
+    checkfile("usev1address","false")
+    checkfile("autologin","false")
+    checkfile("language","en")
+    --Language system is incomplete, so some of these aren't referenced yet
+    checkfile("lang/en/kristwallet","KristWallet")
+    checkfile("lang/en/release","release")
+    checkfile("lang/en/password","Password")
+    checkfile("lang/en/overview","  Overview  ")
+    checkfile("lang/en/transactions","Transactions")
+    checkfile("lang/en/send_krist"," Send Krist ")
+    checkfile("lang/en/special_tx"," Special TX ")
+    checkfile("lang/en/economicon"," Economicon ")
+    checkfile("lang/en/localsetting","LocalSetting")
+    checkfile("lang/en/ls_is_locked","LS is locked")
+    checkfile("lang/en/exit","    Exit    ")
+    checkfile("lang/en/logout","   Logout   ")
+    checkfile("lang/en/by","by")
+    checkfile("lang/en/sent","Sent")
+    checkfile("lang/en/received","Received")
+    checkfile("lang/en/mined","Mined")
+    checkfile("lang/en/your_address","Your address")
+    checkfile("lang/en/your_balance","Your balance")
+    checkfile("lang/en/context_pw_1","Please enter your secret password to")
+    checkfile("lang/en/context_pw_2","use Krist. If this is your first time")
+    checkfile("lang/en/context_pw_3","using Krist, type your desired password.")
+    checkfile("lang/en/context_pw_4","You will be able to access your Krist")
+    checkfile("lang/en/context_pw_5","on any computer on any server as long")
+    checkfile("lang/en/context_pw_6","as you type in the same password! It will")
+    checkfile("lang/en/context_pw_7","not be saved or shared with anyone.")
+    checkfile("lang/en/context_wl_1","Sorry, this wallet is not on the whitelist for this computer!")
+    checkfile("lang/en/context_wl_2","Your wallet is blocked from this computer!")
+    checkfile("lang/en/passwordchar","*")
+    checkfile("keyAL",sha256(""))
+    checkfile("keyLV",sha256(math.random(10)..os.time()))
+    checkfile("versionserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/staticapi/version")
+    checkfile("updateserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/kristwallet")
+    checkfile("syncnode","http://65.26.252.225/quest/dia/krist/index.php")
+    checkfile("whitelist",[[kg5dc1lzo0
+a5dfb396d3]])
+    checkfile("blacklist",[[ke3kjplzsz #Blank string (prevent accidents)
+kojddz0uzw #RV main
+8c11bb0d2d #Ransom virus
+]])
+  else
+    fs.makeDir("kst")
+  end
+end
 function openwallet()
   term.setBackgroundColor(8)
   term.clear()
@@ -290,54 +417,91 @@ function openwallet()
   term.setBackgroundColor(8)
   term.setTextColor(32768)
   term.setCursorPos(6,6)
-  term.write("Password:")
+  term.write(scribe("password")..":")
   term.setCursorPos(6,8)
          -----|---+---------+---------+---------+-----|---+-
-  term.write("Please enter your secret password to")
+  term.write(scribe("context_pw_1"))
   term.setCursorPos(6,9)
-  term.write("use Krist. If this is your first time")
+  term.write(scribe("context_pw_2"))
   term.setCursorPos(6,10)
-  term.write("using Krist, type your desired password.")
+  term.write(scribe("context_pw_3"))
   term.setCursorPos(6,11)
-  term.write("You will be able to access your Krist")
+  term.write(scribe("context_pw_4"))
   term.setCursorPos(6,12)
-  term.write("on any computer on any server as long")
+  term.write(scribe("context_pw_5"))
   term.setCursorPos(6,13)
-  term.write("as you type in the same password! It will")
+  term.write(scribe("context_pw_6"))
   term.setCursorPos(6,14)
-  term.write("not be saved or shared with anyone.")
+  term.write(scribe("context_pw_7"))
   term.setCursorPos(16,6)
-  local password = read("*")
-  password = sha256("KRISTWALLET"..password)
+  local password = ""
+  if readconfig("autologin") then
+    password = readconfig("keyAL")
+  else
+    password = read(scribe("passwordchar"))
+    if readconfig("appendhashes") then password = sha256("KRISTWALLET"..password) end
+  end
   term.clear()
   term.setCursorPos(1,1)
   page = 1+gui*(10*(gui-1))
-  masterkey = password.."-000"
+  if readconfig("appendhashes") then masterkey = password.."-000" else masterkey = password end
+  log("Read password")
   addressv1 = string.sub(sha256(masterkey),0,10)
+  log("Derived address: "..addressv1)
+  address = makev2address(masterkey)
+  log("Derived address: "..address)
+  balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..addressv1).readAll())
+  if balance > 0 and readconfig("sweepv1") then local transaction = http.get(readconfig("syncnode").."?pushtx&q="..address.."&pkey="..masterkey.."&amt="..balance).readAll() end
+  balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
+  if readconfig("whitelisted") then
+    local whitelist = readconfig("whitelist")
+    if string.find(whitelist, address) == nil then
+      log(address.." is not on the whitelist!")
+      print(scribe("context_wl_1"))
+      page = 0
+      os.sleep(3)
+    end
+  else
+    local blacklist = readconfig("blacklist")
+    if string.find(blacklist, addressv1) ~= nil then
+      log(addressv1.." is on the blacklist!")
+      print(scribe("context_wl_2"))
+      page = 0
+      os.sleep(3)
+    elseif string.find(blacklist, address) ~= nil then
+      log(address.." is on the blacklist!")
+      print(scribe("context_wl_2"))
+      page = 0
+      os.sleep(3)
+    end
+  end
+  if readconfig("usev1address") then address = addressv1 end
+  addresslv = makev2address(readconfig("keyLV"))
+  log("Loaded local vault")
+end
+function makev2address(key)
   local protein = {}
-  local stick = sha256(sha256(masterkey))
+  local stick = sha256(sha256(key))
   local n = 0
   local link = 0
+  local v2 = "k"
   repeat
     if n < 9 then protein[n] = string.sub(stick,0,2)
     stick = sha256(sha256(stick)) end
     n = n + 1
   until n == 9
-  address = 'k'
   n = 0
   repeat
     link = tonumber(string.sub(stick,1+(2*n),2+(2*n)),16) % 9
     if string.len(protein[link]) ~= 0 then
-      address = address .. hextobase36(tonumber(protein[link],16))
+      v2 = v2 .. hextobase36(tonumber(protein[link],16))
       protein[link] = ''
       n = n + 1
     else
       stick = sha256(stick)
     end
   until n == 9
-  balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..addressv1).readAll())
-  if balance > 0 then local transaction = http.get("http://65.26.252.225/quest/dia/krist/index.php?pushtx&q="..address.."&pkey="..masterkey.."&amt="..balance).readAll() end
-  balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+  return v2
 end
 local function postgraphic(px,py,id)
   term.setCursorPos(px,py)
@@ -425,11 +589,12 @@ local function postgraphic(px,py,id)
 end
 function wallet()
   hud()
+  local pagebefore = page
   local event, button, xPos, yPos = os.pullEvent("mouse_click")
   if gui == 1 then
     if yPos == 5 and xPos >= 3 and xPos <= 14 then
       page = 1
-      balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+      balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
     end
     if yPos == 7 and xPos >= 3 and xPos <= 14 then
       page = 2
@@ -438,10 +603,16 @@ function wallet()
     end
     if yPos == 9 and xPos >= 3 and xPos <= 14 then
       page = 3
-      balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+      balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
+    end
+    if yPos == 11 and xPos >= 3 and xPos <= 14 then
+      page = 8
     end
     if yPos == 13 and xPos >= 3 and xPos <= 14 then
       page = 4
+    end
+    if yPos == 15 and xPos >= 3 and xPos <= 14 then
+      if readconfig("locksettings") then page = 0 else page = 14 end
     end
     if yPos == 17 and xPos >= 3 and xPos <= 14 then
       page = 0
@@ -452,8 +623,9 @@ function wallet()
     end
   end
   if page == 1 then
+    balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
     if (yPos-7)%5 == 0 and yPos >= 7 and xPos >= 26 and xPos <= 35 then
-      subject = string.sub(http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..address.."&overview").readAll(),13+(31*((yPos-7)/5)),22+(31*((yPos-7)/5)))
+      subject = string.sub(http.get(readconfig("syncnode").."?listtx="..address.."&overview").readAll(),13+(31*((yPos-7)/5)),22+(31*((yPos-7)/5)))
       if string.len(subject) == 10 and subject ~= "N/A(Mined)" then
         page = 2
       end
@@ -487,13 +659,17 @@ function wallet()
       term.setCursorPos(33,5)
       local recipient = read()
       term.setCursorPos(33,6)
+      log("Read recipient for transfer")
       local amount = read()
-      local transaction = http.get("http://65.26.252.225/quest/dia/krist/index.php?pushtx2&q="..recipient.."&pkey="..masterkey.."&amt="..amount).readAll()
-      balance = tonumber(http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..address).readAll())
+      log("Read amount for transfer")
+      local transaction = http.get(readconfig("syncnode").."?pushtx2&q="..recipient.."&pkey="..masterkey.."&amt="..amount).readAll()
+      balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
+      log("Attempting to send "..amount.." KST to "..recipient)
       term.setCursorPos(19,8)
       if transaction == "Success" then
         term.setTextColor(8192)
         term.write("Transfer successful")
+        log("Transfer successful")
         term.setTextColor(32768)
       elseif string.sub(transaction,0,5) == "Error" then
         local problem = "An unknown error happened"
@@ -504,6 +680,7 @@ function wallet()
         if code == 4 then problem = "Invalid recipient address" end
         term.setTextColor(16384)
         term.write(problem)
+        log(problem)
         term.setTextColor(32768)
       else
         term.setTextColor(16384)
@@ -511,12 +688,18 @@ function wallet()
         term.setTextColor(32768)
       end
       os.sleep(2.5) --lower this if you do tons of transfers
+      log("Unfroze display")
     end
-  
   elseif page == 4 then
     if yPos == 3 and xPos >= 19 and xPos <= 31 then
       page = 5
       scroll = 0
+    end
+    if yPos == 4 and xPos >= 19 and xPos <= 31 then
+      page = 10
+    end
+    if yPos == 5 and xPos >= 19 and xPos <= 31 then
+      page = 11
     end
     if yPos == 3 and xPos >= 35 and xPos <= 48 then
       page = 6
@@ -552,7 +735,102 @@ function wallet()
         scroll = 0
       end
     end
+  elseif page == 8 then
+    if yPos == 3 and xPos >= 19 and xPos <= 30 then
+      page = 9
+    end
+    if yPos == 3 and xPos >= 35 and xPos <= 48 then
+      page = 3
+    end
+    if yPos == 4 and xPos >= 19 and xPos <= 29 then
+      page = 13
+    end
+  elseif page == 9 then
+    if yPos == 4 and xPos >= 30 then
+      term.setCursorPos(30,4)
+      term.write("                      ")
+      term.setCursorPos(30,4)
+      doublekey = read("*")
+      term.setCursorPos(30,4)
+      term.write("Please wait...        ")
+      if string.len(doublekey) > 0 then
+        doublekey = sha256(masterkey.."-"..sha256(doublekey))
+        addressdv = makev2address(doublekey)
+        balance2 = tonumber(http.get(readconfig("syncnode").."?getbalance="..addressdv).readAll())
+        log("Derived double vault "..addressdv)
+      else
+        addressdv = ""
+        balance2 = 0
+      end
+    end
+    if yPos == 5 and xPos >= 33 then
+      term.setCursorPos(33,5)
+      term.write("                      ")
+      term.setCursorPos(33,5)
+      amt = read()
+      if tonumber(amt) == nil then
+        amt = 0
+      elseif tonumber(amt) % 1 ~= 0 then
+        amt = 0
+      elseif tonumber(amt) <= 0 then
+        amt = 0
+      end
+    end
+    if yPos == 6 and xPos >= 25 and xPos <= 33 then
+      if tonumber(amt) > 0 and string.len(doublekey) > 0 then
+        if tonumber(amt) <= balance then
+          local transaction = http.get(readconfig("syncnode").."?pushtx2&q="..addressdv.."&pkey="..masterkey.."&amt="..tonumber(amt)).readAll()
+          balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
+          balance2 = tonumber(http.get(readconfig("syncnode").."?getbalance="..addressdv).readAll())
+          log("Put "..amt.." KST in a double vault")
+        end
+      end
+    end
+    if yPos == 6 and xPos >= 35 and xPos <= 44 then
+      if tonumber(amt) > 0 and string.len(doublekey) > 0 then
+        if tonumber(amt) <= balance2 then
+          local transaction = http.get(readconfig("syncnode").."?pushtx2&q="..address.."&pkey="..doublekey.."&amt="..tonumber(amt)).readAll()
+          balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
+          balance2 = tonumber(http.get(readconfig("syncnode").."?getbalance="..addressdv).readAll())
+          log("Took "..amt.." KST from a double vault")
+        end
+      end
+    end
+  elseif page == 13 then
+    if yPos == 5 and xPos >= 33 then
+      term.setCursorPos(33,5)
+      term.write("                      ")
+      term.setCursorPos(33,5)
+      term.setTextColor(32768)
+      amt = read()
+      if tonumber(amt) == nil then
+        amt = 0
+      elseif tonumber(amt) % 1 ~= 0 then
+        amt = 0
+      elseif tonumber(amt) <= 0 then
+        amt = 0
+      end
+    end
+    if yPos == 6 and xPos >= 25 and xPos <= 33 then
+      if tonumber(amt) > 0 then
+        if tonumber(amt) <= balance then
+          local transaction = http.get(readconfig("syncnode").."?pushtx2&q="..addresslv.."&pkey="..masterkey.."&amt="..tonumber(amt)).readAll()
+          balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
+          log("Put "..amt.." KST in a local vault")
+        end
+      end
+    end
+    if yPos == 6 and xPos >= 35 and xPos <= 44 then
+      if tonumber(amt) > 0 then
+        if tonumber(amt) <= balance3 then
+          local transaction = http.get(readconfig("syncnode").."?pushtx2&q="..address.."&pkey="..readconfig("keyLV").."&amt="..tonumber(amt)).readAll()
+          balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
+          log("Took "..amt.." KST from a local vault")
+        end
+      end
+    end
   end
+  if pagebefore ~= page then log("Switched to page "..page) end
 end
 function drawTab(text)
   term.setBackgroundColor(512)
@@ -592,13 +870,20 @@ function hud()
     term.setCursorPos(3,9)
     drawTab(" Send Krist ")
     term.setCursorPos(3,11)
-    --drawTab("  KW Tools  ")
+    drawTab(" Special TX ")
     term.setCursorPos(3,13)
-    drawTab("   Ledger   ")
+    drawTab(" Economicon ")
     term.setCursorPos(3,15)
-    --drawTab("   Config   ")
-    term.setCursorPos(3,17)
-    drawTab("    Exit    ")
+    if readconfig("locksettings") then
+      term.setBackgroundColor(8)
+      term.write("LS is locked")
+      term.setCursorPos(3,17)
+      drawTab("   Logout   ")
+    else
+      --drawTab("LocalSetting")
+      term.setCursorPos(3,17)
+      drawTab("    Exit    ")
+    end
     term.setBackgroundColor(1)
   elseif gui == 2 then
     term.setCursorPos(1,1)
@@ -636,7 +921,7 @@ function hud()
     term.write(tostring(balance).." KST")
     term.setTextColor(32768)
     term.setCursorPos(19,5)
-    local recenttransactions = http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..address.."&overview").readAll()
+    local recenttransactions = http.get(readconfig("syncnode").."?listtx="..address.."&overview").readAll()
     local txtype = 0
     local graphics = 0
     if string.len(recenttransactions) > 25 then
@@ -679,8 +964,10 @@ function hud()
       until graphics >= math.floor(string.len(recenttransactions)/32)
     end
   elseif page == 2 then
-    subbal = http.get("http://65.26.252.225/quest/dia/krist/index.php?getbalance="..subject).readAll()
-    subtxs = http.get("http://65.26.252.225/quest/dia/krist/index.php?listtx="..subject).readAll()
+    subbal = http.get(readconfig("syncnode").."?getbalance="..subject).readAll()
+    subtxs = http.get(readconfig("syncnode").."?listtx="..subject).readAll()
+    log("Loaded transactions for address "..subject)
+    log("Page index is "..scroll)
     term.setCursorPos(18,1)
     if subtxs == "end" then subbal = 0 end
     term.write("ADDRESS "..subject.." - "..subbal.." KST")
@@ -786,10 +1073,9 @@ function hud()
     term.setCursorPos(19,3)
     term.write("Latest blocks   Address lookup")
     term.setCursorPos(19,4)
-    --term.write("Lowest hashes   Rich list")
-    term.write("                Top balances")
+    term.write("Lowest hashes   Top balances")
     term.setCursorPos(19,5)
-    term.write("   ")
+    term.write("Lowest nonces   ")
     term.setTextColor(32768)
     term.setCursorPos(19,7)
     --term.write("Economy         Transactions")
@@ -799,7 +1085,7 @@ function hud()
     term.setCursorPos(19,9)
     --term.write("KST distrib.    Largest transfers")
   elseif page == 5 then
-    local blocks = http.get("http://65.26.252.225/quest/dia/krist/index.php?blocks").readAll()
+    local blocks = http.get(readconfig("syncnode").."?blocks").readAll()
     local tx = 0
     ar = 0
     local height = string.sub(blocks,1,8)
@@ -857,7 +1143,7 @@ function hud()
     term.setCursorPos(18,1)
     term.write("ADDRESS (click to edit)")
   elseif page == 7 then
-    local blocks = http.get("http://65.26.252.225/quest/dia/krist/index.php?richapi").readAll()
+    local blocks = http.get(readconfig("syncnode").."?richapi").readAll()
     local tx = 0
     ar = 0
     local height = string.sub(blocks,1,8)
@@ -893,6 +1179,236 @@ function hud()
       term.setCursorPos(40,2+ar)
       term.write(blkhash[ar])
     until ar == 16
+  elseif page == 8 then
+    term.setCursorPos(19,2)
+    term.write("Storage         Transfer")
+    term.setTextColor(512)
+    term.setCursorPos(19,3)
+    term.write("Double vault    Basic transfer")
+    term.setCursorPos(19,4)
+    term.write("Local vault     ")
+    term.setCursorPos(19,5)
+    --term.write("Disk vault      v1 SHA vault")
+    term.setCursorPos(19,6)
+    --term.write("SHA vault       v1 wallet")
+  elseif page == 9 then
+    term.setCursorPos(25,2)
+    term.write("Double vault manager")
+    term.setCursorPos(19,8)
+    term.write("Using double vaults is a way to")
+    term.setCursorPos(19,9)
+    term.write("store your Krist under an extra")
+    term.setCursorPos(19,10)
+    term.write("layer of security. You can only")
+    term.setCursorPos(19,11)
+    term.write("access a double vault from your")
+    term.setCursorPos(19,12)
+    term.write("wallet (on any server) and then")
+    term.setCursorPos(19,13)
+    term.write("only after typing an extra pass")
+    term.setCursorPos(19,14)
+    term.write("code. Double wallets are wholly")
+    term.setCursorPos(19,15)
+    term.write("invisible to unauthorized users")
+    term.setCursorPos(19,16)
+    term.write("of your wallet; they can not be")
+    term.setCursorPos(19,17)
+    term.write("seen or opened without the pass")
+    term.setCursorPos(19,18)
+    term.write("code set by you.")
+    term.setCursorPos(19,4)
+    term.write("Pass code: ")
+    term.setCursorPos(19,5)
+    term.write("Amount (KST): ")
+    term.setCursorPos(30,4)
+    if string.len(doublekey) == 0 then
+      term.setTextColor(256)
+      term.write("(click to set)")
+    else
+      term.setTextColor(8192)
+      term.write("Ready: "..balance2.." KST")
+      if tonumber(amt) > 0 then
+        term.setCursorPos(25,6)
+        term.setTextColor(32768)
+        term.setBackgroundColor(128)
+        if tonumber(amt) <= balance then
+          term.setBackgroundColor(2)
+        end
+        term.write(" Deposit ")
+        term.setBackgroundColor(1)
+        term.write(" ")
+        term.setBackgroundColor(128)
+        if tonumber(amt) <= balance2 then
+          term.setBackgroundColor(2)
+        end
+        term.write(" Withdraw ")
+        term.setBackgroundColor(1)
+      end
+    end
+    term.setCursorPos(33,5)
+    if amt == 0 then
+      term.setTextColor(256)
+      term.write("(click to set)")
+    else
+      term.setTextColor(32768)
+      term.write(amt)
+    end
+    term.setTextColor(32768)
+  elseif page == 10 then
+    local blocks = http.get(readconfig("syncnode").."?blocks&low").readAll()
+    local tx = 0
+    ar = 0
+    local blktime = {}
+    blkpeer = {}
+    local blkhash = {}
+    repeat
+      tx = tx + 1
+      blktime[tx] = string.sub(blocks,1,6)
+      blocks = string.sub(blocks,7)
+      blkpeer[tx] = string.sub(blocks,1,6)
+      blocks = string.sub(blocks,7)
+      blkhash[tx] = string.sub(blocks,1,20)
+      blocks = string.sub(blocks,21)
+    until string.len(blocks) == 0
+    term.setCursorPos(17,1)
+    term.setBackgroundColor(256)
+    term.write(" Date   Block# Hash                ")
+    ----------(" Feb 28 000000 000000000000oooooooo")
+    term.setBackgroundColor(1)
+    repeat
+      ar = ar + 1
+      term.setCursorPos(18,1+ar)
+      term.write(blktime[ar])
+      term.setCursorPos(31-string.len(tostring(math.abs(tonumber(blkpeer[ar])))),1+ar)
+      term.write(tonumber(blkpeer[ar]))
+      term.setTextColor(256)
+      term.setCursorPos(32,1+ar)
+      term.write(blkhash[ar])
+      term.setTextColor(32768)
+      term.setCursorPos(32,1+ar)
+      term.write(string.sub(blkhash[ar],1,12))
+    until ar == math.min(tx,18)
+  elseif page == 11 then
+    local blocks = http.get(readconfig("syncnode").."?blocks&low&lownonce").readAll()
+    local tx = 0
+    ar = 0
+    local blktime = {}
+    blkpeer = {}
+    local blkhash = {}
+    repeat
+      tx = tx + 1
+      blktime[tx] = string.sub(blocks,1,6)
+      blocks = string.sub(blocks,7)
+      blkpeer[tx] = string.sub(blocks,1,6)
+      blocks = string.sub(blocks,7)
+      blkhash[tx] = string.sub(blocks,1,12)
+      blocks = string.sub(blocks,13)
+    until string.len(blocks) == 0
+    term.setCursorPos(17,1)
+    term.setBackgroundColor(256)
+    term.write(" Date   Block# Nonce               ")
+    ----------(" Feb 28 000000 000000000000")
+    term.setBackgroundColor(1)
+    repeat
+      ar = ar + 1
+      term.setCursorPos(18,1+ar)
+      term.write(blktime[ar])
+      term.setCursorPos(31-string.len(tostring(math.abs(tonumber(blkpeer[ar])))),1+ar)
+      term.write(tonumber(blkpeer[ar]))
+      term.setTextColor(32768)
+      term.setCursorPos(32,1+ar)
+      term.write(tonumber(blkhash[ar]))
+    until ar == math.min(tx,18)
+  elseif page == 12 then
+    local blocks = http.get(readconfig("syncnode").."?blocks&low&highnonce").readAll()
+    local tx = 0
+    ar = 0
+    local blktime = {}
+    blkpeer = {}
+    local blkhash = {}
+    repeat
+      tx = tx + 1
+      blktime[tx] = string.sub(blocks,1,6)
+      blocks = string.sub(blocks,7)
+      blkpeer[tx] = string.sub(blocks,1,6)
+      blocks = string.sub(blocks,7)
+      blkhash[tx] = string.sub(blocks,1,12)
+      blocks = string.sub(blocks,13)
+    until string.len(blocks) == 0
+    term.setCursorPos(17,1)
+    term.setBackgroundColor(256)
+    term.write(" Date   Block# Nonce               ")
+    ----------(" Feb 28 000000 000000000000")
+    term.setBackgroundColor(1)
+    repeat
+      ar = ar + 1
+      term.setCursorPos(18,1+ar)
+      term.write(blktime[ar])
+      term.setCursorPos(31-string.len(tostring(math.abs(tonumber(blkpeer[ar])))),1+ar)
+      term.write(tonumber(blkpeer[ar]))
+      term.setTextColor(32768)
+      term.setCursorPos(32,1+ar)
+      term.write(tonumber(blkhash[ar]))
+    until ar == math.min(tx,18)
+  elseif page == 13 then
+    balance3 = tonumber(http.get(readconfig("syncnode").."?getbalance="..addresslv).readAll())
+    term.setCursorPos(25,2)
+    term.write("Local vault manager")
+    term.setCursorPos(19,8)
+    term.write("Local vaults are a place to put")
+    term.setCursorPos(19,9)
+    term.write("Krist in the form of a file on")
+    term.setCursorPos(19,10)
+    term.write("a computer. Unlike traditional")
+    term.setCursorPos(19,11)
+    term.write("wallets, local vaults can only")
+    term.setCursorPos(19,12)
+    term.write("be accessed on the computer")
+    term.setCursorPos(19,13)
+    term.write("they were initially created on.")
+    term.setCursorPos(19,14)
+    term.write("This has use cases, but is a")
+    term.setCursorPos(19,15)
+    term.write("dangerous way of storing Krist")
+    term.setCursorPos(19,16)
+    term.write("and you should probably only do")
+    term.setCursorPos(19,17)
+    term.write("it this way if you know what")
+    term.setCursorPos(19,18)
+    term.write("you're doing.")
+    term.setCursorPos(19,4)
+    term.write("KST put here: "..balance3)
+    term.setCursorPos(19,5)
+    term.write("Amount (KST): ")
+    term.setCursorPos(33,5)
+    if amt == 0 then
+      term.setTextColor(256)
+      term.write("(click to set)")
+    else
+      term.setTextColor(32768)
+      term.write(amt)
+    end
+    if tonumber(amt) > 0 then
+      term.setCursorPos(25,6)
+      term.setTextColor(32768)
+      term.setBackgroundColor(128)
+      if tonumber(amt) <= balance then
+        term.setBackgroundColor(2)
+      end
+      term.write(" Deposit ")
+      term.setBackgroundColor(1)
+      term.write(" ")
+      term.setBackgroundColor(128)
+      if tonumber(amt) <= balance3 then
+        term.setBackgroundColor(2)
+      end
+      term.write(" Withdraw ")
+      term.setBackgroundColor(1)
+    end
+  elseif page == 14 then
+    term.setBackgroundColor(1)
+    term.setCursorPos(19,2)
+    term.write("Local settings")
   elseif page == 21 then
     term.setBackgroundColor(1)
     term.setCursorPos(4,6)
