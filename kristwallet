@@ -1,5 +1,5 @@
 --KristWallet by cossacksson
-local version = 8
+local version = 9
 local latest = 0
 local balance = 0
 local balance2 = 0
@@ -57,7 +57,7 @@ function update()
   if latest > version then
     print("An update is available!")
     log("Discovered update")
-      if readconfig("autoupdate") then
+    if readconfig("autoupdate") then
       local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
       local nextversion = http.get(readconfig("updateserver")).readAll()
       print("Installed update. Run this program again to start v"..latest..".")
@@ -78,7 +78,7 @@ function log(text)
   logfile.close()
 end
 function checkfile(path,default)
-  if not fs.exists("kst/"..path) then
+  if not fs.exists("kst/"..path) or path == "syncnode" then
     file = fs.open("kst/"..path,"w")
     file.writeLine(default)
     file.close()
@@ -97,7 +97,7 @@ function readconfig(path)
     if context == "false" then return false end
     return context
   else
-    print("What the fuck")
+    print("An unknown error happened")
   end
 end
 function settle()
@@ -388,7 +388,7 @@ function checkdir()
     checkfile("keyLV",sha256(math.random(10)..os.time()))
     checkfile("versionserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/staticapi/version")
     checkfile("updateserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/kristwallet")
-    checkfile("syncnode","http://65.26.252.225/quest/dia/krist/index.php")
+    checkfile("syncnode","http://65.26.252.225/krist/")
     checkfile("whitelist",[[kg5dc1lzo0
 a5dfb396d3]])
     checkfile("blacklist",[[ke3kjplzsz #Blank string (prevent accidents)
@@ -699,7 +699,7 @@ function wallet()
       page = 10
     end
     if yPos == 5 and xPos >= 19 and xPos <= 31 then
-      page = 11
+      --page = 11
     end
     if yPos == 3 and xPos >= 35 and xPos <= 48 then
       page = 6
@@ -1075,7 +1075,7 @@ function hud()
     term.setCursorPos(19,4)
     term.write("Lowest hashes   Top balances")
     term.setCursorPos(19,5)
-    term.write("Lowest nonces   ")
+    --term.write("Lowest nonces   ")
     term.setTextColor(32768)
     term.setCursorPos(19,7)
     --term.write("Economy         Transactions")
