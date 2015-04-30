@@ -1,5 +1,21 @@
---KristWallet by cossacksson
-local version = 9
+---------------------------------------------------
+--          KristWallet by cossacksson           --
+---------------------------------------------------
+--This is the reference wallet for Krist.        --
+--It is the basic definition of a functional     --
+--Krist program, and it was built alongside the  --
+--protocol itself.                               --
+---------------------------------------------------
+--Every last bit of this program (except, of     --
+--course, SHA256 itself) was made entirely by    --
+--cossacksson and is "free software" and whatnot.--
+--Do whatever you want with it, but if you make  --
+--it interact with a currency or network other   --
+--than Krist, please give me credit. Thanks <3   --
+---------------------------------------------------
+--This wallet will never save passwords anywhere.--
+---------------------------------------------------
+local version = 10
 local latest = 0
 local balance = 0
 local balance2 = 0
@@ -17,6 +33,7 @@ local addressv1 = ""
 local addressdv = ""
 local addresslv = ""
 local subject = ""
+local name = ""
 local subbal = 0
 local subtxs = ""
 local stdate = {}
@@ -27,6 +44,7 @@ local pagespace = ""
 local maxspace = ""
 local ar = 0
 local amt = 0
+local availability = 0
 local function boot()
   checkdir()
   checkdir()
@@ -122,172 +140,172 @@ local function drawKrist()
   term.setCursorPos(posx+2,posy)
 end
 local function memoize(f)
-        local mt = {}
-        local t = setmetatable({}, mt)
-        function mt:__index(k)
-                local v = f(k)
-                t[k] = v
-                return v
-        end
-        return t
+  local mt = {}
+  local t = setmetatable({}, mt)
+  function mt:__index(k)
+    local v = f(k)
+    t[k] = v
+    return v
+  end
+  return t
 end
 local function make_bitop_uncached(t, m)
-        local function bitop(a, b)
-                local res,p = 0,1
-                while a ~= 0 and b ~= 0 do
-                        local am, bm = a % m, b % m
-                        res = res + t[am][bm] * p
-                        a = (a - am) / m
-                        b = (b - bm) / m
-                        p = p*m
-                end
-                res = res + (a + b) * p
-                return res
-        end
-        return bitop
+  local function bitop(a, b)
+    local res,p = 0,1
+    while a ~= 0 and b ~= 0 do
+      local am, bm = a % m, b % m
+      res = res + t[am][bm] * p
+      a = (a - am) / m
+      b = (b - bm) / m
+      p = p*m
+    end
+    res = res + (a + b) * p
+    return res
+  end
+  return bitop
 end
 local function make_bitop(t)
-        local op1 = make_bitop_uncached(t,2^1)
-        local op2 = memoize(function(a) return memoize(function(b) return op1(a, b) end) end)
-        return make_bitop_uncached(op2, 2 ^ (t.n or 1))
+  local op1 = make_bitop_uncached(t,2^1)
+  local op2 = memoize(function(a) return memoize(function(b) return op1(a, b) end) end)
+  return make_bitop_uncached(op2, 2 ^ (t.n or 1))
 end
 local bxor1 = make_bitop({[0] = {[0] = 0,[1] = 1}, [1] = {[0] = 1, [1] = 0}, n = 4})
 local function bxor(a, b, c, ...)
-        local z = nil
-        if b then
-                a = a % MOD
-                b = b % MOD
-                z = bxor1(a, b)
-                if c then z = bxor(z, c, ...) end
-                return z
-        elseif a then return a % MOD
-        else return 0 end
+  local z = nil
+  if b then
+    a = a % MOD
+    b = b % MOD
+    z = bxor1(a, b)
+    if c then z = bxor(z, c, ...) end
+    return z
+  elseif a then return a % MOD
+  else return 0 end
 end
 local function band(a, b, c, ...)
-        local z
-        if b then
-                a = a % MOD
-                b = b % MOD
-                z = ((a + b) - bxor1(a,b)) / 2
-                if c then z = bit32_band(z, c, ...) end
-                return z
-        elseif a then return a % MOD
-        else return MODM end
+  local z
+  if b then
+    a = a % MOD
+    b = b % MOD
+    z = ((a + b) - bxor1(a,b)) / 2
+    if c then z = bit32_band(z, c, ...) end
+    return z
+  elseif a then return a % MOD
+  else return MODM end
 end
 local function bnot(x) return (-1 - x) % MOD end
 local function rshift1(a, disp)
-        if disp < 0 then return lshift(a,-disp) end
-        return math.floor(a % 2 ^ 32 / 2 ^ disp)
+  if disp < 0 then return lshift(a,-disp) end
+  return math.floor(a % 2 ^ 32 / 2 ^ disp)
 end
 local function rshift(x, disp)
-        if disp > 31 or disp < -31 then return 0 end
-        return rshift1(x % MOD, disp)
+  if disp > 31 or disp < -31 then return 0 end
+  return rshift1(x % MOD, disp)
 end
 local function lshift(a, disp)
-        if disp < 0 then return rshift(a,-disp) end
-        return (a * 2 ^ disp) % 2 ^ 32
+  if disp < 0 then return rshift(a,-disp) end
+  return (a * 2 ^ disp) % 2 ^ 32
 end
 local function rrotate(x, disp)
-    x = x % MOD
-    disp = disp % 32
-    local low = band(x, 2 ^ disp - 1)
-    return rshift(x, disp) + lshift(low, 32 - disp)
+  x = x % MOD
+  disp = disp % 32
+  local low = band(x, 2 ^ disp - 1)
+  return rshift(x, disp) + lshift(low, 32 - disp)
 end
 local k = {
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
-        0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
-        0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
-        0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-        0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-        0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
-        0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
-        0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-        0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
+  0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+  0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+  0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+  0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+  0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+  0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
+  0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+  0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 }
 local function str2hexa(s)
-        return (string.gsub(s, ".", function(c) return string.format("%02x", string.byte(c)) end))
+  return (string.gsub(s, ".", function(c) return string.format("%02x", string.byte(c)) end))
 end
 local function num2s(l, n)
-        local s = ""
-        for i = 1, n do
-                local rem = l % 256
-                s = string.char(rem) .. s
-                l = (l - rem) / 256
-        end
-        return s
+  local s = ""
+  for i = 1, n do
+    local rem = l % 256
+    s = string.char(rem) .. s
+    l = (l - rem) / 256
+  end
+  return s
 end
 local function s232num(s, i)
-        local n = 0
-        for i = i, i + 3 do n = n*256 + string.byte(s, i) end
-        return n
+  local n = 0
+  for i = i, i + 3 do n = n*256 + string.byte(s, i) end
+  return n
 end
 local function preproc(msg, len)
-        local extra = 64 - ((len + 9) % 64)
-        len = num2s(8 * len, 8)
-        msg = msg .. "\128" .. string.rep("\0", extra) .. len
-        assert(#msg % 64 == 0)
-        return msg
+  local extra = 64 - ((len + 9) % 64)
+  len = num2s(8 * len, 8)
+  msg = msg .. "\128" .. string.rep("\0", extra) .. len
+  assert(#msg % 64 == 0)
+  return msg
 end
 local function initH256(H)
-        H[1] = 0x6a09e667
-        H[2] = 0xbb67ae85
-        H[3] = 0x3c6ef372
-        H[4] = 0xa54ff53a
-        H[5] = 0x510e527f
-        H[6] = 0x9b05688c
-        H[7] = 0x1f83d9ab
-        H[8] = 0x5be0cd19
-        return H
+  H[1] = 0x6a09e667
+  H[2] = 0xbb67ae85
+  H[3] = 0x3c6ef372
+  H[4] = 0xa54ff53a
+  H[5] = 0x510e527f
+  H[6] = 0x9b05688c
+  H[7] = 0x1f83d9ab
+  H[8] = 0x5be0cd19
+  return H
 end
 local function digestblock(msg, i, H)
-        local w = {}
-        for j = 1, 16 do w[j] = s232num(msg, i + (j - 1)*4) end
-        for j = 17, 64 do
-                local v = w[j - 15]
-                local s0 = bxor(rrotate(v, 7), rrotate(v, 18), rshift(v, 3))
-                v = w[j - 2]
-                w[j] = w[j - 16] + s0 + w[j - 7] + bxor(rrotate(v, 17), rrotate(v, 19), rshift(v, 10))
-        end
+  local w = {}
+  for j = 1, 16 do w[j] = s232num(msg, i + (j - 1)*4) end
+  for j = 17, 64 do
+    local v = w[j - 15]
+    local s0 = bxor(rrotate(v, 7), rrotate(v, 18), rshift(v, 3))
+    v = w[j - 2]
+    w[j] = w[j - 16] + s0 + w[j - 7] + bxor(rrotate(v, 17), rrotate(v, 19), rshift(v, 10))
+  end
  
-        local a, b, c, d, e, f, g, h = H[1], H[2], H[3], H[4], H[5], H[6], H[7], H[8]
-        for i = 1, 64 do
-                local s0 = bxor(rrotate(a, 2), rrotate(a, 13), rrotate(a, 22))
-                local maj = bxor(band(a, b), band(a, c), band(b, c))
-                local t2 = s0 + maj
-                local s1 = bxor(rrotate(e, 6), rrotate(e, 11), rrotate(e, 25))
-                local ch = bxor (band(e, f), band(bnot(e), g))
-                local t1 = h + s1 + ch + k[i] + w[i]
-                h, g, f, e, d, c, b, a = g, f, e, d + t1, c, b, a, t1 + t2
-        end
+  local a, b, c, d, e, f, g, h = H[1], H[2], H[3], H[4], H[5], H[6], H[7], H[8]
+  for i = 1, 64 do
+    local s0 = bxor(rrotate(a, 2), rrotate(a, 13), rrotate(a, 22))
+    local maj = bxor(band(a, b), band(a, c), band(b, c))
+    local t2 = s0 + maj
+    local s1 = bxor(rrotate(e, 6), rrotate(e, 11), rrotate(e, 25))
+    local ch = bxor (band(e, f), band(bnot(e), g))
+    local t1 = h + s1 + ch + k[i] + w[i]
+    h, g, f, e, d, c, b, a = g, f, e, d + t1, c, b, a, t1 + t2
+  end
  
-        H[1] = band(H[1] + a)
-        H[2] = band(H[2] + b)
-        H[3] = band(H[3] + c)
-        H[4] = band(H[4] + d)
-        H[5] = band(H[5] + e)
-        H[6] = band(H[6] + f)
-        H[7] = band(H[7] + g)
-        H[8] = band(H[8] + h)
+  H[1] = band(H[1] + a)
+  H[2] = band(H[2] + b)
+  H[3] = band(H[3] + c)
+  H[4] = band(H[4] + d)
+  H[5] = band(H[5] + e)
+  H[6] = band(H[6] + f)
+  H[7] = band(H[7] + g)
+  H[8] = band(H[8] + h)
 end
 local function sha256(msg)
-        msg = preproc(msg, #msg)
-        local H = initH256({})
-        for i = 1, #msg, 64 do digestblock(msg, i, H) end
-        return str2hexa(num2s(H[1], 4) .. num2s(H[2], 4) .. num2s(H[3], 4) .. num2s(H[4], 4) ..
-                num2s(H[5], 4) .. num2s(H[6], 4) .. num2s(H[7], 4) .. num2s(H[8], 4))
+  msg = preproc(msg, #msg)
+  local H = initH256({})
+  for i = 1, #msg, 64 do digestblock(msg, i, H) end
+  return str2hexa(num2s(H[1], 4) .. num2s(H[2], 4) .. num2s(H[3], 4) .. num2s(H[4], 4) ..
+          num2s(H[5], 4) .. num2s(H[6], 4) .. num2s(H[7], 4) .. num2s(H[8], 4))
 end
 local function panic()
   page = 0
-  log("Panicking! Shutting down kristwallet.")
+  log("Panicking! Shutting down KristWallet.")
 end
-local function hextobase36(j)
+local function makeaddressbyte(j)
   if j <= 6 then return "0"
   elseif j <= 13 then return "1"
   elseif j <= 20 then return "2"
@@ -327,68 +345,30 @@ local function hextobase36(j)
   else return "e"
   end
 end
-function scribe(term)
-  local language = readconfig("language")
-  if fs.isDir("kst/lang/"..language) then
-    if fs.exists("kst/lang/"..language.."/"..term) then
-      return readconfig("lang/"..language.."/"..term)
-    else
-      return "kst/lang/en/"..term
-    end
-  else
-    log("Can't find language!")
-    panic()
-  end
-  return "?"
-end
 function checkdir()
   if fs.isDir("kst") then
     math.randomseed(os.time()) 
-    checkfile("log","KristWallet log file")
-    checkfile("enabled","true")
+    checkfile("log",[[-----KRISTWALLET LOG FILE-----
+--If this file becomes excessively large, you
+--should save a copy to a disk and stow it away.
+--You should not destroy logs - they may help any
+--detectives recover stolen krist, or at least find
+--the perpetrator! Happy Kristmas! -cossacksson.
+---------------------------------------------------]])
+    checkfile("enabled","true") --Disabling this just makes KristWallet refuse to start. No danger of Krist loss.
     checkfile("sweepv1","true")
-    checkfile("appendhashes","true")
+    checkfile("appendhashes","true") --Disabling this makes it possible to use KristWallet with extremely old addresses. I doubt anyone but me ever will.
     checkfile("autoupdate","true")
     checkfile("whitelisted","false")
     checkfile("rebootonexit","false")
     checkfile("locksettings","false")
     checkfile("usev1address","false")
-    checkfile("autologin","false")
-    checkfile("language","en")
-    --Language system is incomplete, so some of these aren't referenced yet
-    checkfile("lang/en/kristwallet","KristWallet")
-    checkfile("lang/en/release","release")
-    checkfile("lang/en/password","Password")
-    checkfile("lang/en/overview","  Overview  ")
-    checkfile("lang/en/transactions","Transactions")
-    checkfile("lang/en/send_krist"," Send Krist ")
-    checkfile("lang/en/special_tx"," Special TX ")
-    checkfile("lang/en/economicon"," Economicon ")
-    checkfile("lang/en/localsetting","LocalSetting")
-    checkfile("lang/en/ls_is_locked","LS is locked")
-    checkfile("lang/en/exit","    Exit    ")
-    checkfile("lang/en/logout","   Logout   ")
-    checkfile("lang/en/by","by")
-    checkfile("lang/en/sent","Sent")
-    checkfile("lang/en/received","Received")
-    checkfile("lang/en/mined","Mined")
-    checkfile("lang/en/your_address","Your address")
-    checkfile("lang/en/your_balance","Your balance")
-    checkfile("lang/en/context_pw_1","Please enter your secret password to")
-    checkfile("lang/en/context_pw_2","use Krist. If this is your first time")
-    checkfile("lang/en/context_pw_3","using Krist, type your desired password.")
-    checkfile("lang/en/context_pw_4","You will be able to access your Krist")
-    checkfile("lang/en/context_pw_5","on any computer on any server as long")
-    checkfile("lang/en/context_pw_6","as you type in the same password! It will")
-    checkfile("lang/en/context_pw_7","not be saved or shared with anyone.")
-    checkfile("lang/en/context_wl_1","Sorry, this wallet is not on the whitelist for this computer!")
-    checkfile("lang/en/context_wl_2","Your wallet is blocked from this computer!")
-    checkfile("lang/en/passwordchar","*")
+    checkfile("autologin","false") --Don't use autologin. Admittedly, it was a very stupid and dangerous idea. If you want a wallet exclusive to your address, use whitelist instead.
     checkfile("keyAL",sha256(""))
-    checkfile("keyLV",sha256(math.random(10)..os.time()))
+    checkfile("keyLV",sha256(math.random(10)..os.time())) --This is where the local vault's krist is stored. DO NOT DESTROY EVER.
     checkfile("versionserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/staticapi/version")
     checkfile("updateserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/kristwallet")
-    checkfile("syncnode","http://65.26.252.225/krist/")
+    checkfile("syncnode","http://ceriat.net/krist/") --A trusted A-class node to push transactions to.
     checkfile("whitelist",[[kg5dc1lzo0
 a5dfb396d3]])
     checkfile("blacklist",[[ke3kjplzsz #Blank string (prevent accidents)
@@ -417,28 +397,28 @@ function openwallet()
   term.setBackgroundColor(8)
   term.setTextColor(32768)
   term.setCursorPos(6,6)
-  term.write(scribe("password")..":")
+  term.write("Password:")
   term.setCursorPos(6,8)
          -----|---+---------+---------+---------+-----|---+-
-  term.write(scribe("context_pw_1"))
+  term.write("Please enter your secret password to")
   term.setCursorPos(6,9)
-  term.write(scribe("context_pw_2"))
+  term.write("use Krist. If this is your first time")
   term.setCursorPos(6,10)
-  term.write(scribe("context_pw_3"))
+  term.write("using Krist, type your desired password.")
   term.setCursorPos(6,11)
-  term.write(scribe("context_pw_4"))
+  term.write("You will be able to access your Krist")
   term.setCursorPos(6,12)
-  term.write(scribe("context_pw_5"))
+  term.write("on any computer on any server as long")
   term.setCursorPos(6,13)
-  term.write(scribe("context_pw_6"))
+  term.write("as you type in the same password! It will")
   term.setCursorPos(6,14)
-  term.write(scribe("context_pw_7"))
+  term.write("not be saved or shared with anyone.")
   term.setCursorPos(16,6)
   local password = ""
   if readconfig("autologin") then
     password = readconfig("keyAL")
   else
-    password = read(scribe("passwordchar"))
+    password = read("*")
     if readconfig("appendhashes") then password = sha256("KRISTWALLET"..password) end
   end
   term.clear()
@@ -457,7 +437,7 @@ function openwallet()
     local whitelist = readconfig("whitelist")
     if string.find(whitelist, address) == nil then
       log(address.." is not on the whitelist!")
-      print(scribe("context_wl_1"))
+      print("Sorry, this wallet is not on the whitelist for this computer!")
       page = 0
       os.sleep(3)
     end
@@ -465,12 +445,12 @@ function openwallet()
     local blacklist = readconfig("blacklist")
     if string.find(blacklist, addressv1) ~= nil then
       log(addressv1.." is on the blacklist!")
-      print(scribe("context_wl_2"))
+      print("Your wallet is blocked from this computer!")
       page = 0
       os.sleep(3)
     elseif string.find(blacklist, address) ~= nil then
       log(address.." is on the blacklist!")
-      print(scribe("context_wl_2"))
+      print("Your wallet is blocked from this computer!")
       page = 0
       os.sleep(3)
     end
@@ -494,7 +474,7 @@ function makev2address(key)
   repeat
     link = tonumber(string.sub(stick,1+(2*n),2+(2*n)),16) % 9
     if string.len(protein[link]) ~= 0 then
-      v2 = v2 .. hextobase36(tonumber(protein[link],16))
+      v2 = v2 .. makeaddressbyte(tonumber(protein[link],16))
       protein[link] = ''
       n = n + 1
     else
@@ -585,36 +565,69 @@ local function postgraphic(px,py,id)
     term.setBackgroundColor(16)
     term.setTextColor(32768)
     term.write(" v2 ")
+  elseif id == 6 then
+    --Name registered
+    term.setBackgroundColor(32)
+    term.setTextColor(8192)
+    term.setCursorPos(px+4,py)
+    term.write("/")
+    term.setCursorPos(px+1,py+1)
+    term.write("\\")
+    term.setCursorPos(px+3,py+1)
+    term.write("/")
+    term.setCursorPos(px+2,py+2)
+    term.write("V")
+    term.setCursorPos(px+1,py+3)
+    term.setBackgroundColor(16384)
+    term.setTextColor(4)
+    term.write(".kst")
+  elseif id == 7 then
+    --Name operation
+    term.setBackgroundColor(8)
+    term.setTextColor(512)
+    term.setCursorPos(px+1,py)
+    term.write(" a ")
+    term.setBackgroundColor(1)
+    term.write("\\")
+    term.setBackgroundColor(8)
+    term.setCursorPos(px+1,py+1)
+    term.write("====")
+    term.setCursorPos(px+1,py+2)
+    term.write("====")
+    term.setCursorPos(px+1,py+3)
+    term.setBackgroundColor(16384)
+    term.setTextColor(4)
+    term.write(".kst")
   end
 end
 function wallet()
   hud()
   local pagebefore = page
   local event, button, xPos, yPos = os.pullEvent("mouse_click")
-  if gui == 1 then
-    if yPos == 5 and xPos >= 3 and xPos <= 14 then
+  if gui == 1 and xPos >= 3 and xPos <= 14 then
+    if yPos == 5 then
       page = 1
       balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
     end
-    if yPos == 7 and xPos >= 3 and xPos <= 14 then
+    if yPos == 7 then
       page = 2
       subject = address
       scroll = 0
     end
-    if yPos == 9 and xPos >= 3 and xPos <= 14 then
+    if yPos == 9 then
       page = 3
       balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
     end
-    if yPos == 11 and xPos >= 3 and xPos <= 14 then
+    if yPos == 11 then
       page = 8
     end
-    if yPos == 13 and xPos >= 3 and xPos <= 14 then
+    if yPos == 13 then
       page = 4
     end
-    if yPos == 15 and xPos >= 3 and xPos <= 14 then
-      if readconfig("locksettings") then page = 0 else page = 14 end
+    if yPos == 15 then
+      page = 15
     end
-    if yPos == 17 and xPos >= 3 and xPos <= 14 then
+    if yPos == 17 then
       page = 0
     end
   elseif gui == 2 then
@@ -626,7 +639,7 @@ function wallet()
     balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
     if (yPos-7)%5 == 0 and yPos >= 7 and xPos >= 26 and xPos <= 35 then
       subject = string.sub(http.get(readconfig("syncnode").."?listtx="..address.."&overview").readAll(),13+(31*((yPos-7)/5)),22+(31*((yPos-7)/5)))
-      if string.len(subject) == 10 and subject ~= "N/A(Mined)" then
+      if string.len(subject) == 10 and subject ~= "N/A(Mined)" and subject ~= "N/A(Names)" then
         page = 2
       end
     end
@@ -634,6 +647,8 @@ function wallet()
     if yPos > 2 and yPos <= 2+ar-(16*(scroll)) and xPos >= 31 and xPos < 41 then
       if stpeer[(yPos-2)+(16*(scroll))] == "N/A(Mined)" then
         --possibly link to a block later?
+      elseif stpeer[(yPos-2)+(16*(scroll))] == "N/A(Names)" then
+        --possibly link to a name later??
       else
         subject = stpeer[(yPos-2)+(16*(scroll))]
         scroll = 0
@@ -654,6 +669,7 @@ function wallet()
     if yPos == 1 and xPos >= 17 then
       page = 6
     end
+    log("Page index is "..scroll)
   elseif page == 3 then
     if xPos >= 17 then
       term.setCursorPos(33,5)
@@ -727,23 +743,77 @@ function wallet()
     end
   elseif page == 7 then
     if yPos > 2 and yPos <= 18 and xPos >= 20 and xPos < 30 then
-      if blkpeer[(yPos-2)] == "N/A(Burnt)" then
-        --possibly link to null later?
-      else
+      if blkpeer[(yPos-2)] ~= "N/A(Burnt)" then
         page = 2
         subject = blkpeer[(yPos-2)]
         scroll = 0
       end
     end
+  elseif page == 15 then
+    if yPos == 1 and xPos >= 46 then
+      page = 16
+    elseif yPos >= 3 and xPos >= 39 and xPos <= 42 then
+      page = 17
+      local listofnames = http.get(readconfig("syncnode").."?listnames="..address).readAll()
+      local nameclicked = yPos - 3
+      repeat
+        listofnames = listofnames:sub(1+listofnames:find(";"))
+        nameclicked = nameclicked - 1
+      until nameclicked == 0
+      subject = listofnames:sub(0,listofnames:find(";")-1)
+    end
   elseif page == 8 then
     if yPos == 3 and xPos >= 19 and xPos <= 30 then
       page = 9
     end
-    if yPos == 3 and xPos >= 35 and xPos <= 48 then
-      page = 3
+    if yPos == 3 and xPos >= 35 and xPos <= 47 then
+      page = 16
     end
     if yPos == 4 and xPos >= 19 and xPos <= 29 then
       page = 13
+    end
+  elseif page == 16 then
+    if yPos == 4 and xPos >= 25 then
+      term.setCursorPos(25,4)
+      term.write("                           ")
+      term.setCursorPos(25,4)
+      name = read():lower():gsub(".kst",""):gsub(" ","")
+      term.setCursorPos(25,4)
+      term.write("Please wait...             ")
+      if string.len(name) > 0 then
+        if name == "a" or name == "name" or name == "id" or name == "owner" or name == "registered" or name == "updated" or name == "expires" or name == "unpaid" then
+          availability = 0
+        else
+          availability = tonumber(http.get(readconfig("syncnode").."?name_check="..name).readAll())
+          log("Checked "..name..".kst for availability ("..availability..")")
+          term.setCursorPos(19,7)
+          if availability then
+            term.setTextColor(colors.green)
+            term.write("Available!")
+          else
+            term.setTextColor(colors.red)
+            term.write("Not available!")
+          end
+        end
+      else
+        name = ""
+      end
+    elseif yPos == 7 and xPos >= 30 and xPos <= 39 and availability == 1 and balance >= 500 then
+      availability = 2
+      local k = http.get(readconfig("syncnode").."?name_new&pkey="..masterkey.."&name="..name).readAll()
+    end
+  elseif page == 17 then
+    if yPos == 5 and xPos >= 25 then
+      term.setCursorPos(25,5)
+      term.write("                           ")
+      term.setCursorPos(25,5)
+      zone = read():gsub("http://","")
+      term.setCursorPos(25,5)
+      term.write("Please wait...             ")
+      local sevenminutesleftuntilmaystartsfuckihavetoreleasethisnow = http.get(readconfig("syncnode").."?name_update&pkey="..masterkey.."&name="..subject.."&ar="..zone).readAll()
+    elseif yPos == 7 and xPos >= 30 and xPos <= 39 and availability == 1 and balance >= 500 then
+      availability = 2
+      local k = http.get(readconfig("syncnode").."?name_new&pkey="..masterkey.."&name="..name).readAll()
     end
   elseif page == 9 then
     if yPos == 4 and xPos >= 30 then
@@ -874,16 +944,9 @@ function hud()
     term.setCursorPos(3,13)
     drawTab(" Economicon ")
     term.setCursorPos(3,15)
-    if readconfig("locksettings") then
-      term.setBackgroundColor(8)
-      term.write("LS is locked")
-      term.setCursorPos(3,17)
-      drawTab("   Logout   ")
-    else
-      --drawTab("LocalSetting")
-      term.setCursorPos(3,17)
-      drawTab("    Exit    ")
-    end
+    drawTab("Name Manager")
+    term.setCursorPos(3,17)
+    drawTab("    Exit    ")
     term.setBackgroundColor(1)
   elseif gui == 2 then
     term.setCursorPos(1,1)
@@ -914,19 +977,16 @@ function hud()
     term.setTextColor(16384)
     term.write(address)
     term.setTextColor(32768)
-    term.setCursorPos(19,3)
-    term.write("Your balance: ")
-    term.setTextColor(1024)
-    if tostring(balance) == 'nil' then balance = 0 end
-    term.write(tostring(balance).." KST")
-    term.setTextColor(32768)
     term.setCursorPos(19,5)
-    local recenttransactions = http.get(readconfig("syncnode").."?listtx="..address.."&overview").readAll()
+    local recenttransactions = ""
+    --if tostring(balance) ~= 'nil' then recenttransactions = http.get(readconfig("syncnode").."?listtx="..address.."&overview").readAll() end
     local txtype = 0
     local graphics = 0
     if string.len(recenttransactions) > 25 then
       repeat
         if string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == "N/A(Mined)" then txtype = 1
+        elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == "N/A(Names)" and tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) == 0 then txtype = 7
+        elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == "N/A(Names)" then txtype = 6
         elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == address then txtype = 4
         elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == addressv1 then txtype = 5
         elseif tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) < 0 then txtype = 2
@@ -939,8 +999,10 @@ function hud()
         if txtype == 1 then term.write("Mined")
         elseif txtype == 2 then term.write("Sent")
         elseif txtype == 3 then term.write("Received")
-        elseif txtype == 4 then term.write("Tumbled")
+        elseif txtype == 4 then term.write("Sent to yourself")
         elseif txtype == 5 then term.write("Imported")
+        elseif txtype == 6 then term.write("Name registered")
+        elseif txtype == 7 then term.write("Name operation")
         end
         term.setCursorPos(26,6+(5*graphics))
         if txtype == 4 then
@@ -953,15 +1015,50 @@ function hud()
         else
           term.setTextColor(16384)
         end
-        term.write(tostring(tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics)))).." KST")
+        if txtype < 7 then term.write(tostring(tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics)))).." KST") end
         term.setCursorPos(26,7+(5*graphics))
-        term.setTextColor(512)
-        if txtype > 1 then term.write(string.sub(recenttransactions,13+(31*graphics),22+(31*graphics))) end
+        term.setTextColor(32768)
+        if txtype ~= 6 then term.setTextColor(512) end
+        if txtype > 1 and txtype < 6 then term.write(string.sub(recenttransactions,13+(31*graphics),22+(31*graphics))) end
+        --if txtype == 6 then term.write(".kst") end
         term.setCursorPos(26,8+(5*graphics))
         term.setTextColor(128)
         term.write(string.sub(recenttransactions,1+(31*graphics),12+(31*graphics)))
         graphics = graphics + 1
       until graphics >= math.floor(string.len(recenttransactions)/32)
+    end
+    term.setTextColor(colors.gray)
+    term.setCursorPos(19,5)
+    term.write("The Krist database is getting")
+    term.setCursorPos(19,6)
+    term.write("extremely huge. Some features")
+    term.setCursorPos(19,7)
+    term.write("have been temporarily disabled")
+    term.setCursorPos(19,8)
+    term.write("until queries can be made more")
+    term.setCursorPos(19,9)
+    term.write("efficient.")
+    term.setCursorPos(19,11)
+    term.write("This includes the recent")
+    term.setCursorPos(19,12)
+    term.write("transaction list that would")
+    term.setCursorPos(19,13)
+    term.write("normally be found here.")
+    term.setTextColor(32768)
+    term.setCursorPos(19,3)
+    term.write("Your balance: ")
+    term.setTextColor(1024)
+    if tostring(balance) == 'nil' then balance = 0 end
+    term.write(tostring(balance).." KST ")
+    term.setTextColor(512)
+    local names = tonumber(http.get(readconfig("syncnode").."?getnames="..address).readAll())
+    if names > 0 then term.write("["..tostring(names).."]") end
+    if address == "kgvewr7va7" then
+      term.setCursorPos(1,1)
+      term.setBackgroundColor(16384)
+      term.setTextColor(16)
+      term.clearLine()
+      term.write("Test alert. Please disregard")
     end
   elseif page == 2 then
     subbal = http.get(readconfig("syncnode").."?getbalance="..subject).readAll()
@@ -996,6 +1093,7 @@ function hud()
         term.write(stdate[ar])
         if stpeer[ar] ~= "N/A(Mined)" then term.setTextColor(512) end
         if stpeer[ar] == subject then term.setTextColor(32768) end
+        if stpeer[ar] == "N/A(Names)" then term.setTextColor(32768) end
         term.setCursorPos(31,2+ar-(16*(scroll)))
         term.write(stpeer[ar])
         term.setCursorPos(50-string.len(tostring(math.abs(stval[ar]))),2+ar-(16*(scroll)))
@@ -1181,12 +1279,12 @@ function hud()
     until ar == 16
   elseif page == 8 then
     term.setCursorPos(19,2)
-    term.write("Storage         Transfer")
+    term.write("Storage         Domain names")
     term.setTextColor(512)
     term.setCursorPos(19,3)
-    term.write("Double vault    Basic transfer")
+    term.write("Double vault    Register name")
     term.setCursorPos(19,4)
-    term.write("Local vault     ")
+    term.write("Local vault     Edit zone record")
     term.setCursorPos(19,5)
     --term.write("Disk vault      v1 SHA vault")
     term.setCursorPos(19,6)
@@ -1409,6 +1507,116 @@ function hud()
     term.setBackgroundColor(1)
     term.setCursorPos(19,2)
     term.write("Local settings")
+    --deprecated for now
+  elseif page == 15 then
+    term.setBackgroundColor(1)
+    term.setCursorPos(18,1)
+    term.write(".KST domain name manager     [New]")
+    term.setCursorPos(46,1)
+    term.setBackgroundColor(32)
+    term.setTextColor(1)
+    term.write(" + NEW")
+    term.setCursorPos(17,2)
+    term.setBackgroundColor(256)
+    term.setTextColor(32768)
+    term.write(" Name                 Actions      ")
+    term.setBackgroundColor(1)
+    term.setCursorPos(18,3)
+    local namelist = http.get(readconfig("syncnode").."?listnames="..address).readAll()
+    if string.len(namelist) == 0 then
+      term.setTextColor(256)
+      term.write("No names to display!")
+    else
+      local namecount = 0
+      repeat
+        term.setTextColor(32768)
+        term.setCursorPos(18,3+namecount)
+        term.write(string.sub(namelist:sub(0,namelist:find(";")-1)..".kst",0,20))
+        term.setCursorPos(39,3+namecount)
+        term.setTextColor(512)
+        term.write("Edit ")
+        term.setTextColor(256)
+        term.write("Send ")
+        term.write("Go")
+        namelist = namelist:sub(1+namelist:find(";"))
+        namecount = namecount + 1
+      until string.len(namelist) == 0
+    end
+    --term.write("a.kst                Edit Send Go")
+    term.setBackgroundColor(1)
+  elseif page == 16 then
+    term.setBackgroundColor(1)
+    term.setCursorPos(20,2)
+    term.write(".KST domain name registration")
+    term.setCursorPos(19,4)
+    term.write("Name: ")
+    if name == "" then
+      term.setTextColor(colors.lightGray)
+      term.write("(click to set)")
+    else
+      term.write(name)
+      term.setTextColor(colors.lightGray)
+      term.write(".kst")
+    end
+    term.setTextColor(colors.black)
+    term.setCursorPos(19,5)
+    term.write("Cost: 500 KST")
+    term.setCursorPos(19,7)
+    --term.write("Available! [Register]")
+    if name == "" then
+      term.setTextColor(colors.blue)
+      term.write("Please select a name!")
+    elseif availability == 1 then
+      term.setTextColor(colors.green)
+      term.write("Available! ")
+      if balance >= 500 then
+        term.setBackgroundColor(colors.green)
+        term.setTextColor(colors.lime)
+        term.write(" Register ")
+        term.setBackgroundColor(colors.white)
+      end
+    elseif availability == 2 then
+      term.setTextColor(colors.yellow)
+      term.write("Name registered!")
+    else
+      term.setTextColor(colors.red)
+      term.write("Not available!")
+    end
+    term.setTextColor(colors.black)
+    term.setCursorPos(19,9)
+    term.write(".KST domain names are used on")
+    term.setCursorPos(19,10)
+    term.write("the KristScape browser. For")
+    term.setCursorPos(19,11)
+    term.write("more information, please see")
+    term.setCursorPos(19,12)
+    term.write("the Krist thread.")
+    term.setCursorPos(19,14)
+    term.write("All Krist spent on names will")
+    term.setCursorPos(19,15)
+    term.write("be added to the value of")
+    term.setCursorPos(19,16)
+    term.write("future blocks; essentially")
+    term.setCursorPos(19,17)
+    term.write("being \"re-mined.\"")
+  elseif page == 17 then
+    term.setBackgroundColor(1)
+    term.setCursorPos(28,2)
+    term.write(".KST zone file")
+    term.setCursorPos(19,4)
+    term.write("Name: "..subject)
+    term.setTextColor(colors.lightGray)
+    term.write(".kst")
+    term.setTextColor(colors.black)
+    term.setCursorPos(19,5)
+    term.write("Zone: ")
+    zone = http.get(readconfig("syncnode").."?a="..subject).readAll()
+    if zone == "" then
+      term.setTextColor(colors.lightGray)
+      term.write("(click to set)")
+    else
+      term.write(zone)
+    end
   elseif page == 21 then
     term.setBackgroundColor(1)
     term.setCursorPos(4,6)
