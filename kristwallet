@@ -1,21 +1,21 @@
+--[[-----------------------------------------------
+|           KristWallet by cossacksson            |
 ---------------------------------------------------
---          KristWallet by cossacksson           --
+| This is the reference wallet for Krist.         |
+| It is the basic definition of a functional      |
+| Krist program, although it is not as old as the |
+| network (we used to just use raw API calls).    |
 ---------------------------------------------------
---This is the reference wallet for Krist.        --
---It is the basic definition of a functional     --
---Krist program, and it was built alongside the  --
---protocol itself.                               --
+| Every last bit of this program (except, of      |
+| course, SHA256 itself) was made entirely by     |
+| cossacksson and is "free software" and whatnot. |
+| Do whatever you want with it, but if you make   |
+| it interact with a currency or network other    |
+| than Krist, please give me credit. Thanks <3    |
 ---------------------------------------------------
---Every last bit of this program (except, of     --
---course, SHA256 itself) was made entirely by    --
---cossacksson and is "free software" and whatnot.--
---Do whatever you want with it, but if you make  --
---it interact with a currency or network other   --
---than Krist, please give me credit. Thanks <3   --
----------------------------------------------------
---This wallet will never save passwords anywhere.--
----------------------------------------------------
-local version = 10
+| This wallet will NEVER save passwords anywhere. |]]local --[[pretty sneaky, huh?]]
+-----------------------------------------------]]--
+                   version = 11
 local latest = 0
 local balance = 0
 local balance2 = 0
@@ -50,7 +50,7 @@ local function boot()
   checkdir()
   print("Starting KristWallet v"..tostring(version))
   log("Started KristWallet v"..tostring(version))
-  update()
+  --update()
   if readconfig("enabled") and latest <= version then
     settle()
     openwallet()
@@ -91,7 +91,7 @@ function update()
   end  
 end
 function log(text)
-  logfile = fs.open("kst/log","a")
+  logfile = fs.open("kst/log_wallet","a")
   logfile.writeLine(tostring(os.day()).."-"..tostring(os.time()).."/"..text)
   logfile.close()
 end
@@ -348,7 +348,7 @@ end
 function checkdir()
   if fs.isDir("kst") then
     math.randomseed(os.time()) 
-    checkfile("log",[[-----KRISTWALLET LOG FILE-----
+    checkfile("log_wallet",[[-----KRISTWALLET LOG FILE-----
 --If this file becomes excessively large, you
 --should save a copy to a disk and stow it away.
 --You should not destroy logs - they may help any
@@ -364,7 +364,7 @@ function checkdir()
     checkfile("locksettings","false")
     checkfile("usev1address","false")
     checkfile("autologin","false") --Don't use autologin. Admittedly, it was a very stupid and dangerous idea. If you want a wallet exclusive to your address, use whitelist instead.
-    checkfile("keyAL",sha256(""))
+    checkfile("keyAL",sha256("")) --This is meaningless gibberish
     checkfile("keyLV",sha256(math.random(10)..os.time())) --This is where the local vault's krist is stored. DO NOT DESTROY EVER.
     checkfile("versionserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/staticapi/version")
     checkfile("updateserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/kristwallet")
@@ -431,8 +431,11 @@ function openwallet()
   address = makev2address(masterkey)
   log("Derived address: "..address)
   balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..addressv1).readAll())
-  if balance > 0 and readconfig("sweepv1") then local transaction = http.get(readconfig("syncnode").."?pushtx&q="..address.."&pkey="..masterkey.."&amt="..balance).readAll() end
+  if balance > 0 and readconfig("sweepv1") then local transaction = http.get(readconfig("syncnode").."?pushtx&q="..address.."&pkey="..masterkey.."&amt="..balance).readAll() log("Swept hex address") end
   balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
+	if balance >= 100000 then log("Woah! There's a small fortune here!") elseif balance > 0 then log("There is some krist here!") end
+	if balance == 420 then log("This is such a blazing balance") end
+	if balance == 42 then log("Hey, Chuck") end
   if readconfig("whitelisted") then
     local whitelist = readconfig("whitelist")
     if string.find(whitelist, address) == nil then
@@ -598,6 +601,10 @@ local function postgraphic(px,py,id)
     term.setBackgroundColor(16384)
     term.setTextColor(4)
     term.write(".kst")
+  elseif id == 8 then
+    --Name sent
+  elseif id == 9 then
+    --Name received
   end
 end
 function wallet()
@@ -756,10 +763,19 @@ function wallet()
       page = 17
       local listofnames = http.get(readconfig("syncnode").."?listnames="..address).readAll()
       local nameclicked = yPos - 3
-      repeat
+      if nameclicked > 0 then repeat
         listofnames = listofnames:sub(1+listofnames:find(";"))
         nameclicked = nameclicked - 1
-      until nameclicked == 0
+      until nameclicked == 0 end
+      subject = listofnames:sub(0,listofnames:find(";")-1)
+    elseif yPos >= 3 and xPos >= 44 and xPos <= 47 then
+      page = 18
+      local listofnames = http.get(readconfig("syncnode").."?listnames="..address).readAll()
+      local nameclicked = yPos - 3
+      if nameclicked > 0 then repeat
+        listofnames = listofnames:sub(1+listofnames:find(";"))
+        nameclicked = nameclicked - 1
+      until nameclicked == 0 end
       subject = listofnames:sub(0,listofnames:find(";")-1)
     end
   elseif page == 8 then
@@ -772,6 +788,22 @@ function wallet()
     if yPos == 4 and xPos >= 19 and xPos <= 29 then
       page = 13
     end
+  elseif page == 18 then
+		if yPos == 5 and xPos >= 30 then
+      term.setCursorPos(30,5)
+      term.write("                           ")
+      term.setCursorPos(30,5)
+      maxspace = read():lower()
+      term.setCursorPos(19,7)
+      pagespace = http.get(readconfig("syncnode").."?name_transfer&pkey="..masterkey.."&name="..subject.."&q="..maxspace).readAll()
+			if pagespace == "Success" then
+			end
+				term.write("Transfer request broadcasted")
+				log("Tried sending a name to "..maxspace)
+				os.sleep(3)
+				page = 15
+				--im drunk on water right now
+		end
   elseif page == 16 then
     if yPos == 4 and xPos >= 25 then
       term.setCursorPos(25,4)
@@ -1053,12 +1085,12 @@ function hud()
     term.setTextColor(512)
     local names = tonumber(http.get(readconfig("syncnode").."?getnames="..address).readAll())
     if names > 0 then term.write("["..tostring(names).."]") end
-    if address == "kgvewr7va7" then
+    if address == "khm4f12scx" or address == "klhyy8e845" or address == "kcyd5vejdw" then
       term.setCursorPos(1,1)
       term.setBackgroundColor(16384)
       term.setTextColor(16)
       term.clearLine()
-      term.write("Test alert. Please disregard")
+      term.write("The crash on trying to edit a name is now fixed btw")
     end
   elseif page == 2 then
     subbal = http.get(readconfig("syncnode").."?getbalance="..subject).readAll()
@@ -1279,12 +1311,12 @@ function hud()
     until ar == 16
   elseif page == 8 then
     term.setCursorPos(19,2)
-    term.write("Storage         Domain names")
+    term.write("Storage         Names")
     term.setTextColor(512)
     term.setCursorPos(19,3)
     term.write("Double vault    Register name")
     term.setCursorPos(19,4)
-    term.write("Local vault     Edit zone record")
+    term.write("Local vault     ")
     term.setCursorPos(19,5)
     --term.write("Disk vault      v1 SHA vault")
     term.setCursorPos(19,6)
@@ -1529,14 +1561,15 @@ function hud()
     else
       local namecount = 0
       repeat
+				local thisname = namelist:sub(0,namelist:find(";")-1)
         term.setTextColor(32768)
         term.setCursorPos(18,3+namecount)
-        term.write(string.sub(namelist:sub(0,namelist:find(";")-1)..".kst",0,20))
+        term.write(string.sub(thisname..".kst",0,20))
         term.setCursorPos(39,3+namecount)
         term.setTextColor(512)
-        term.write("Edit ")
+        if thisname == "a" or thisname == "name" or thisname == "owner" or thisname == "updated" or thisname == "registered" or thisname == "expires" or thisname == "id" or thisname == "unpaid" then term.setTextColor(256) end
+        term.write("Edit Send ")
         term.setTextColor(256)
-        term.write("Send ")
         term.write("Go")
         namelist = namelist:sub(1+namelist:find(";"))
         namecount = namecount + 1
@@ -1569,12 +1602,12 @@ function hud()
     elseif availability == 1 then
       term.setTextColor(colors.green)
       term.write("Available! ")
-      if balance >= 500 then
+      --if balance >= 500 then
         term.setBackgroundColor(colors.green)
         term.setTextColor(colors.lime)
         term.write(" Register ")
         term.setBackgroundColor(colors.white)
-      end
+      --end
     elseif availability == 2 then
       term.setTextColor(colors.yellow)
       term.write("Name registered!")
@@ -1608,6 +1641,31 @@ function hud()
     term.setTextColor(colors.lightGray)
     term.write(".kst")
     term.setTextColor(colors.black)
+    term.setCursorPos(19,7)
+    term.write("Your name's zone file is the")
+    term.setCursorPos(19,8)
+    term.write("URL of the site it is pointing")
+    term.setCursorPos(19,9)
+    term.write("to. When KristScape navigates")
+    term.setCursorPos(19,10)
+    term.write("to a name, it will make an HTTP")
+    term.setCursorPos(19,11)
+    term.write("get request to the above URL.")
+    term.setCursorPos(19,12)
+    term.write("The zone record should not")
+    term.setCursorPos(19,13)
+    term.write("include a protocol (http://)")
+    term.setCursorPos(19,14)
+    term.write("and shouldn't end with a")
+    term.setCursorPos(19,15)
+    term.write("slash. You can redirect a name")
+    term.setCursorPos(19,16)
+    term.write("to another name by making the")
+    term.setCursorPos(19,17)
+    term.write("first character of the record")
+    term.setCursorPos(19,18)
+    term.write("a dollar sign; e.g. $krist.kst")
+    term.setTextColor(colors.black)
     term.setCursorPos(19,5)
     term.write("Zone: ")
     zone = http.get(readconfig("syncnode").."?a="..subject).readAll()
@@ -1617,6 +1675,17 @@ function hud()
     else
       term.write(zone)
     end
+  elseif page == 18 then
+    term.setBackgroundColor(1)
+    term.setCursorPos(28,2)
+    term.write("Name transfer")
+    term.setCursorPos(19,4)
+    term.write("Name: "..subject)
+    term.setTextColor(colors.lightGray)
+    term.write(".kst")
+    term.setTextColor(colors.black)
+    term.setCursorPos(19,5)
+    term.write("Recipient: ")
   elseif page == 21 then
     term.setBackgroundColor(1)
     term.setCursorPos(4,6)
