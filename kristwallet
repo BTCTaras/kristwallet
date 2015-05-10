@@ -50,7 +50,7 @@ local function boot()
   checkdir()
   print("Starting KristWallet v"..tostring(version))
   log("Started KristWallet v"..tostring(version))
-  --update()
+  update()
   if readconfig("enabled") and latest <= version then
     settle()
     openwallet()
