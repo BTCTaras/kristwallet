@@ -49,21 +49,21 @@ local function boot()
   term.setCursorPos(1,1)
 end
 function update()
-  latest = tonumber(http.get(readconfig("versionserver")).readAll())
-  if latest > version then
-    print("An update is available!")
+  --latest = tonumber(http.get(readconfig("versionserver")).readAll())
+  --if latest > version then
+    print("This is a pre-release. Checking up...")
     --log("Discovered update")
       if readconfig("autoupdate") then
       local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
-      local nextversion = http.get(readconfig("updateserver")).readAll()
-      print("Installed update. Run this program again to start v"..latest..".")
+      local nextversion = http.get("https://raw.githubusercontent.com/BTCTaras/kristwallet/scape/kristscape").readAll()
+      --print("Installed update. Run this program again to start v"..latest..".")
       me.write(nextversion)
       me.close()
       --("Installed update")
-    else
+  --  else
       --log("Ignored update")
-      latest = -2
-    end
+  --    latest = -2
+  --  end
   else
     --log("No updates found")
   end  
