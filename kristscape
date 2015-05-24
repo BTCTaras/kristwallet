@@ -1,6 +1,6 @@
 --KristScape by cossacksson
 local release = 0
-local version = "pre-release"
+local version = "Dev Build 2"
 local latest = 0
 local gui = 0
 local tabs = 1
@@ -35,7 +35,7 @@ local function boot()
   term.clear()
   checkdir()
   checkdir()
-  --if http then update() end
+  if http then update() end
   settle()
   title[1] = "New Tab"
   address[1] = ""
