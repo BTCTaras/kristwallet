@@ -131,7 +131,7 @@ local function getError(code)
   if code == 010 then return "NO_WEBPAGE_RECEIVED" end
   if code == 042 then return "BLOCKED_BY_CHUCK_NORRIS" end
   if code == 069 then return "ADULT_CONTENT_BLOCKED" end
-  return "INVALID_ERROR_CODE"
+  return "ERROR:UNKNOWN_ERROR"
 end
 function checkdir()
   if fs.isDir("kst") then
