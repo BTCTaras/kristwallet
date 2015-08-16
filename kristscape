@@ -1,771 +1,551 @@
---KristScape by cossacksson
-local release = 0
-local version = "Dev Build 2"
-local latest = 0
-local gui = 0
-local tabs = 1
-local activetab = 1
-local selected = false
-local editing = false
-local title = {}
-local address = {}
-local content = {}
-local literal = {}
-local history = {}
-local links = {}
-local themefore = 32
-local themeback = 8192
-local themehead = 256
-local themetext = 32768
-local themetool = -1
-local themedang = 16384
-local issue = 0
-local drawn = ""
-local headers = {["User-Agent"] = "KristScape "..version}
-links[1] = {}
-links[2] = {}
-links[3] = {}
-links[1][0] = 0
-history[1] = {}
-history[2] = {}
-history[3] = {}
-history[1][0] = 0
-local function boot()
-  term.setBackgroundColor(1)
-  term.clear()
-  checkdir()
-  checkdir()
-  if http then update() end
-  settle()
-  title[1] = "New Tab"
-  address[1] = ""
-  content[1] = "[BG:WHITE]"
-  while tabs > 0 do
-    go()
-  end
-  term.setBackgroundColor(32768)
-  term.setTextColor(16)
-  term.clear()
-  term.setCursorPos(1,1)
-end
-function update()
-  --latest = tonumber(http.get(readconfig("versionserver")).readAll())
-  --if latest > version then
-    print("This is a pre-release. Checking up...")
-    --log("Discovered update")
-      if readconfig("autoupdate") then
-      local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
-      local nextversion = http.get("https://raw.githubusercontent.com/BTCTaras/kristwallet/scape/kristscape").readAll()
-      --print("Installed update. Run this program again to start v"..latest..".")
-      me.write(nextversion)
-      me.close()
-      --("Installed update")
-  --  else
-      --log("Ignored update")
-  --    latest = -2
-  --  end
-  else
-    --log("No updates found")
-  end  
-end
-function log(text)
-  logfile = fs.open("kst/log_scape","a")
-  logfile.writeLine(tostring(os.day()).."-"..tostring(os.time())..": "..text)
-  logfile.close()
-end
-function checkfile(path,default)
-  if not fs.exists("kst/"..path) then
-    file = fs.open("kst/"..path,"w")
-    file.writeLine(default)
-    file.close()
-    --log("Created file "..path)
-    return false
-  else
-    return true
-  end
-end
-function resetfile(path,default)
-  file = fs.open("kst/"..path,"w")
-  file.writeLine(default)
-  file.close()
-  --log("Wrote file "..path)
-end
-function readconfig(path)
-  if fs.exists("kst/"..path) then
-    file = fs.open("kst/"..path,"r")
-    local context = file.readAll()
-    file.close()
-    if context == "true" then return true end
-    if context == "false" then return false end
-    return context
-  else
-    return false
-  end
-end
-function settle()
-  gui = 2
-  if pocket then gui = 4 end
-  if term.isColor() then gui = 1 end
-  if term.isColor() and pocket then gui = 2 end
-  local theme = readconfig("theme")
-  themefore = 2^tonumber(theme:sub(1,1),16)
-  themeback = 2^tonumber(theme:sub(2,2),16)
-  themehead = 2^tonumber(theme:sub(3,3),16)
-  themetext = 2^tonumber(theme:sub(4,4),16)
-  themedang = 2^tonumber(theme:sub(5,5),16)
-end
-local function panic()
-  tabs = 0
-end
-local function getError(code)
-  if code == 000 then return "UNSPECIFIED_EXCEPTION" end
-  if code == 001 then return "ILLEGALLY_NESTED_TAGS" end
-  if code == 002 then return "UNEXPECTED_CLOSING_TAG" end
-  if code == 003 then return "HTTP_NOT_ENABLED" end
-  if code == 004 then return "NO_DATA_RECEIVED" end
-  if code == 005 then return "NO_DNS_RECORD_FOUND" end
-  if code == 006 then return "GENERIC_EXCEPTION" end
-  if code == 007 then return "UNSUPPORTED_IMAGE_FORMAT" end
-  if code == 008 then return "NFP_IMAGE_NOT_STORED_LOCALLY" end
-  if code == 009 then return "HOSTNAME_NOT_RESOLVED" end
-  if code == 010 then return "NO_WEBPAGE_RECEIVED" end
-  if code == 042 then return "BLOCKED_BY_CHUCK_NORRIS" end
-  if code == 069 then return "ADULT_CONTENT_BLOCKED" end
-  return "INVALID_ERROR_CODE"
-end
-function checkdir()
-  if fs.isDir("kst") then
-    checkfile("log_scape","KristScape browsing history")
-    checkfile("versionserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/staticapi/browserversion")
-    checkfile("updateserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/kristscape")
-    checkfile("theme","5d8fe")
-    checkfile("theme","1ecff")
-    checkfile("theme","87ffe")
-    checkfile("theme","39bfe")
-    checkfile("theme","4c8fe")
-    checkfile("theme","6e8ff")
-    checkfile("theme","f788e")
-    checkfile("adult","false")
-    resetfile("syncnode","http://ceriat.net/krist/index.php")
-    resetfile("pages/test",[[Images test
-.nfp format:
-[BR][IMAGE]images/dang.nfp[/IMAGE][END]
-]])
-    resetfile("pages/error",[[Oh dear!!!!![ERROR]
-[BG:THEMEDISABLED][C:THEMETEXT][HL:THEMEFG][BR][CENTER]KristScape has encountered an error![/CENTER][HL:THEMEDISABLED]
-[BR]The page could not be displayed because of an
-[BR]error. Sorry about that :(
-[BR]
-[BR]Code: [C:YELLOW][HL:RED][PROBLEM][C:THEMETEXT][HL:THEMEDISABLED]
-[BR]
-[BR]If you need help or don't know what this
-[BR]means, you can ask on the Krist thread.
-[BR]         [IMAGE]images/dang.nfp[/IMAGE]
-[END]
-]])
-    resetfile("pages/images/dang.nfp",[[4444      44      4    4  44444
-4  44    44 44    444  4  4    4
-4   4   44   44   4 44 4  4
-4   4  444444444  4  444  4  444
-4  4   4       44 4   44  44   4
-444   44        4 4    4   4444]])
-    resetfile("pages/images/krist.nft",[[?0?5/?5?d\
-?5?d\?d?5/]])
-  else
-    fs.makeDir("kst/scape")
-  end
-end
-local function centerText(text)
-  local x,y = term.getSize()
-  local x2,y2 = term.getCursorPos()
-  term.setCursorPos(math.ceil((x/2)-(text:len()/2)),y2)
-  term.write(text)
-end
-local function centerTextAt(text,width,at)
-  local x,y = term.getSize()
-  local x2,y2 = term.getCursorPos()
-  term.setCursorPos(math.ceil((x/2)-((width)/2))+at,y2)
-  term.write(text)
-end
-local function stripTags(text)
-  local digest = ""
-  local nexttag = 0
-  while true do
-    nexttag = text:find("%[")
-    if tostring(nexttag) == "nil" then
-      digest = text
-      break
-    else
-      if nexttag ~= 1 then
-        digest = digest .. text:sub(1,nexttag-1):gsub("%]","")
-        text = text:sub(nexttag)
-      else
-        if tostring(text:find("%]")) == "nil" then break else
-          text = text:sub(nexttag+text:find("%]"))
-        end
-      end
-    end
-  end
-  return digest
-end
-local function newtab()
-  activetab = tabs + 1
-  tabs = tabs + 1
-  title[activetab] = "New Tab"
-  address[activetab] = ""
-  literal[activetab] = ""
-  content[activetab] = "[BG:WHITE]"
-  history[activetab][0] = 0
-  links[activetab][0] = 0
-end
-local function movetab(from,to)
-  title[to] = title[from]
-  address[to] = address[from]
-  literal[to] = literal[from]
-  content[to] = content[from]
-  history[to] = history[from]
-  links[to] = links[from]
-end
-local function fixaddress(a)
-  a = a:gsub(".com",".kst"):gsub(".org",".kst"):gsub(".net",".kst"):gsub(".gov",".kst")
-  if string.sub(a,1,7) ~= "http://" and string.sub(a,1,8) ~= "scape://" then
-    a = "http://"..a
-  end
-  return a
-end
-local function refresh(addr)
-  links[activetab][0] = 0
-  local domain = ""
-  if addr == "" then
-    content[activetab] = " "
-    title[activetab] = ""
-  else
-    if string.sub(addr,1,7) == "http://" then
-      if http then
-        addr = string.sub(addr,8)
-        if addr:find(".kst") == nil then crash(9) return false end
-        domain = string.sub(addr,1,addr:find(".kst")-1)
-        addr = string.sub(addr,5+string.len(domain))
-        local zone = http.get(readconfig("syncnode").."?a="..domain).readAll()
-        --if zone == nil then crash(5) return false end
-        if zone == "" then crash(5) return false end
-        if string.sub(zone,1,1) == "$" then
-          zone = string.sub(zone,2)
-          address[activetab] = fixaddress(zone)
-          --content[activetab] = "aaaa[SLB]aaaa"
-          refresh(address[activetab])
+-- BEGIN kst/parsers/ksml/coal
+local VERSION = "COAL"
+
+local color = {
+    ["WHITE"] = colors.white,
+    ["ORANGE"] = colors.orange,
+    ["MAGENTA"] = colors.magenta,
+    ["LIGHTBLUE"] = colors.lightBlue,
+    ["YELLOW"] = colors.yellow,
+    ["LIME"] = colors.lime,
+    ["PINK"] = colors.pink,
+    ["GRAY"] = colors.gray, -- gray
+    ["GREY"] = colors.gray, -- grey
+    ["LIGHTGRAY"] = colors.lightGray, --gray
+    ["LIGHTGREY"] = colors.lightGray, --grey
+    ["CYAN"] = colors.cyan,
+    ["PURPLE"] = colors.purple,
+    ["BLUE"] = colors.blue,
+    ["BROWN"] = colors.brown,
+    ["GREEN"] = colors.green,
+    ["RED"] = colors.red, 
+    ["BLACK"] = colors.black 
+}
+
+local function wrap(word,width) -- width might not be provided
+    local lines = {""}
+    width = arg or term.getSize()~= 51 and term.getSize() or 50
+    xmin = term.getCursorPos()
+    xmax = xmin+width
+    for wordspace in word:gmatch("%w+%s+") do
+        if #(lines[#lines]..wordspace)>width then
+            lines[#lines+1] = wordspace
         else
-          literal[activetab] = "http://"..zone..addr
-          if history[activetab][history[activetab][0]] ~= address[activetab] then
-            history[activetab][0] = history[activetab][0] + 1
-            history[activetab][history[activetab][0]] = address[activetab]
-          end
-          log(address[activetab])
-          --print(literal[activetab])
-          content[activetab] = http.get(literal[activetab],nil,headers).readAll()
-          content[activetab] = string.gsub(content[activetab],"\n","[SLB]")
-          if tostring(content[activetab]:find("%[SLB%]")) == "nil" then
-            title[activetab] = content[activetab]
-          else
-            title[activetab] = string.sub(content[activetab],1,string.find(content[activetab],"%[SLB%]")-1)
-          end
-          if string.find(content[activetab],"%[SLB%]") ~= nil then
-            content[activetab] = string.sub(content[activetab],string.find(content[activetab],"%[SLB%]")+4)
-          else crash(10) return false end
+            lines[#lines] = lines[#lines]..wordspace
         end
-      else crash(3) return false end
-    elseif string.sub(addr,1,8) == "scape://" then
-      addr = string.sub(addr,9)
-      literal[activetab] = "scape://"..addr
-      history[activetab][0] = history[activetab][0] + 1
-      history[activetab][history[activetab][0]] = literal[activetab]
-      log(literal[activetab])
-      content[activetab] = readconfig("pages/"..addr)
-      content[activetab] = string.gsub(content[activetab],"\n","[SLB]")
-      if tostring(content[activetab]:find("%[SLB%]")) == "nil" then
-        title[activetab] = content[activetab]
-      else
-        title[activetab] = string.sub(content[activetab],1,string.find(content[activetab],"%[SLB%]")-1)
-      end
-      content[activetab] = string.sub(content[activetab],string.find(content[activetab],"%[SLB%]")+4)
     end
-  end
-end
-function crash(code)
-  issue = code
-  log("ERROR/"..tostring(code))
-  refresh("scape://error/")
-  literal[activetab] = "scape://error"
-  os.setAlarm(os.time()+.01)
-end
-function showsite()
-  if content[activetab]:find("%[NSFW%]") ~= nil then
-    if readconfig("adult") then
-      
-    else
-      crash(69)
-      return false
+    for k,v in pairs(lines) do
+        print(v)
+        local _,y = term.getCursorPos()
+        term.setCursorPos(xmin,y)
     end
-  end
-  drawn = content[activetab]
-  local page = content[activetab]:gsub("%[PROBLEM%]",string.format("%03d",tostring(issue)).." "..getError(issue)):gsub("%[ID%]",os.getComputerID())
-  if string.len(page) == 0 then crash(4) return false end
-  local tag = 0
-  local el = ""
-  local align = 1
-  local cellstart = 1
-  local paragraph = 0
-  local offset = 0
-  local wid = 0
-  local dontcolorlinks = false
-  term.setBackgroundColor(1)
-  el = page:sub(2,page:sub(2):find("%]")).."]"
-  if el == "[BG:BLACK]" then
-    term.setBackgroundColor(32768)
-  elseif el == "[BG:RED]" then
-    term.setBackgroundColor(16384)
-  elseif el == "[BG:GREEN]" then
-    term.setBackgroundColor(8192)
-  elseif el == "[BG:BROWN]" then
-    term.setBackgroundColor(4096)
-  elseif el == "[BG:BLUE]" then
-    term.setBackgroundColor(2048)
-  elseif el == "[BG:PURPLE]" then
-    term.setBackgroundColor(1024)
-  elseif el == "[BG:CYAN]" then
-    term.setBackgroundColor(512)
-  elseif el == "[BG:LIGHTGRAY]" or el == "[BG:LIGHTGREY]" then
-    term.setBackgroundColor(256)
-  elseif el == "[BG:DARKGRAY]" or el == "[BG:DARKGREY]" or el == "[BG:GRAY]" or el == "[BG:GREY]" then
-    term.setBackgroundColor(128)
-  elseif el == "[BG:PINK]" then
-    term.setBackgroundColor(64)
-  elseif el == "[BG:LIME]" then
-    term.setBackgroundColor(32)
-  elseif el == "[BG:YELLOW]" then
-    term.setBackgroundColor(16)
-  elseif el == "[BG:LIGHTBLUE]" then
-    term.setBackgroundColor(8)
-  elseif el == "[BG:MAGENTA]" then
-    term.setBackgroundColor(4)
-  elseif el == "[BG:ORANGE]" then
-    term.setBackgroundColor(2)
-  elseif el == "[BG:WHITE]" then
-    term.setBackgroundColor(1)
-  elseif el == "[BG:THEMEFG]" then
-    term.setBackgroundColor(themefore)
-  elseif el == "[BG:THEMEDISABLED]" then
-    term.setBackgroundColor(themeback)
-  elseif el == "[BG:THEMEBG]" then
-    term.setBackgroundColor(themehead)
-  elseif el == "[BG:THEMETEXT]" then
-    term.setBackgroundColor(themetext)
-  elseif el == "[BG:THEMEDANGER]" then
-    term.setBackgroundColor(themedang)
-  end
-  while true do
-    tag = tag + 1
-    term.setCursorPos(1,3+tag)
-    term.write("                                                  ")
-    if tag == 16 then break end
-  end
-  tag = 0
-  term.setTextColor(32768)
-  term.setCursorPos(1,4)
-  while true do
-    --print(page)
-    tag = page:find("%[")
-    if tostring(tag) == "nil" then
-      if align == 1 then term.write(page:gsub("%]",""))
-      elseif align == 2 then centerText(page)
-      end
-      break
-    else
-      if tag ~= 1 then
-        if align == 1 then
-          if paragraph == 0 then
-            term.write(page:sub(1,tag-1):gsub("%]",""))
-          else
-            if page:find("%s") ~= nil then
-              local ox, oy = term.getCursorPos()
-              if (ox-cellstart) + page:find("%s") < paragraph then
-                --print(page)
-                --term.write(tostring(page:find("%s")))
-                term.write(page:sub(1,page:find("%s")))
-                page = page:sub(page:find("%s")+1)
-              else
-                term.setCursorPos(cellstart,oy+1)
-              end
-            else
-              --paragraph = 0
-              --print("error-ish")
-              --something odd happened.
+end
+
+if not oldSetTColor then
+    oldSetTColor = term.setTextColor
+end
+if not oldSetBColor then
+    oldSetBColor = term.setBackgroundColor
+end
+
+local tColor = {}
+local bColor = {}
+
+_G.term.setTextColor = function(color)
+    if colors[color] or type(color) == "number" then
+        table.insert(tColor,color)
+    end
+    return oldSetTColor(color)
+end
+
+_G.term.getTextColor = function()
+    return tColor[#tColor] or colors.black
+end
+
+_G.term.setBackgroundColor = function(color)
+    if colors[color] or type(color) == "number" then
+        table.insert(bColor,color)
+    end
+    return oldSetBColor
+end
+
+_G.term.getBackgroundColor = function()
+    return bColor[#bColor] or colors.black
+end
+
+tags = {
+    ["closing"] = { -- anything with a closing tag
+        ["C"] = function(arg,content)
+            --go through colors here
+            local oldColor = term.getTextColor()
+            if color[arg] then
+                term.setTextColor(color[arg])
             end
-          end
-        elseif align == 2 then
-          local line = page:sub(1,tag-1)
-          --string.len(page:sub(1,-8+tag+page:find("%[/CENTER%]")))
-          --string.find(stripTags(page:gsub("%[/CENTER%]","$$ENDCENT")),"$$ENDCENT")-string.len(stripTags(line))-- - string.len(line))
-          --print()
-          --while string.len(stripTags(line)) < string.len(stripTags(line)) + offset do line = " " .. line end
-          --while string.len(stripTags(line)) < string.find(stripTags(page:gsub("%[/CENTER%]","$$ENDCENT")),"$$ENDCENT") + offset do line = line .. " " end
-          centerTextAt(line,wid,offset)--,-(string.len(page:sub(1,-9+tag+string.find(stripTags(page:gsub("%[/CENTER%]","$$ENDCENT")),"$$ENDCENT")))/2)+offset-5)
-          offset = offset + string.len(stripTags(line))
+            for i=1, #content do
+                if type(content[i]) == "string" then
+                    term.write(content[i])
+                elseif type(content[i]) == "table" then -- it is another tag
+                    if tags[content[i].tag] ~= nil then
+                        tags[content[i].tag](content[i].arg)
+                    elseif tags.closing[content[i].tag] ~= nil then
+                        tags.closing[content[i].tag](content[i].arg, content[i].contents)
+                    end
+                end
+            end
+            term.setTextColor(oldColor)
+            --table.remove(buffer.color,#buffer.color) -- removing the currently used color from the buffer
+        end,
+        ["HL"] = function(arg,content) -- Maybe Word wrapping should go here? see [P] k
+            local ccolor = term.getBackgroundColor()
+            term.setBackgroundColor(colors.arg)
+            term.write(content)
+            term.setBackgroundColor(ccolor)
+        end,
+        ["TITLE"] = function(arg,content) 
+            --append the content to the page title
+            --local pTitle = --todo --this should be declared in the gui
+        end,
+        ["TAB"] = function(arg,content)
+            --display this in the tab text, but not the title bar
+        end,
+        ["NOTAB"] = function(arg,content)
+            --display this in the title bar, but not the tab text
+        end,
+        ["P"] = function(args,content)
+            for i=1, #content do
+                if type(content[i]) == "string" then
+                    wrap(content[i],args)
+                elseif type(content[i]) == "table" then -- it is another tag
+                    if tags[content[i].tag] ~= nil then
+                        tags[content[i].tag](content[i].arg)
+                    elseif tags.closing[content[i]] ~= nil then
+                        tags.closing[content[i].tag](content[i].arg, content[i].contents)
+                    end
+                end
+            end
+        end,
+        ["CELL"] = function(args,content)
+            --makes a [P] but wrap X chars from where the tag started
+            --int between 1 and 50 (50 being the width of the window)
+            local xArg,yArg = args:match("(%d+),(%d+)")
+            if tonumber(x) == nil or tonumber(y) == nil then
+                return
+            end
+            local x,y = term.getCursorPos()
+            local cellWindow = window.create(term.current(),x,y,xArg,yArg)
+            local oldCur = term.current()
+            term.redirect(cellWindow)
+            for i=1, #content do
+                if type(content[i]) == "string" then
+                    wrap(content[i],xArg)
+                elseif type(content[i]) == "table" then -- it is another tag
+                    if tags[content[i].tag] ~= nil then
+                        tags[content[i].tag](content[i].arg)
+                    elseif tags.closing[content[i]] ~= nil then
+                        tags.closing[content[i].tag](content[i].arg, content[i].contents)
+                    end
+                end
+            end
+            term.redirect(term.current)
+        end,
+        ["CENTER"] = function(args,content)
+            local pos = {term.getCursorPos()}
+            if pos[1] ~= 1 then
+                term.setCursorPos(1,pos[2]+1)
+            end
+            for i=1, #content do
+                if type(content[i]) == "string" then
+                    local x,y = term.getSize()
+                    local cy = pos[2]
+                    term.setCursorPos(x/2-(#content[#content]/2),cy)
+                    print(content[i])
+                elseif type(content[i]) == "table" then -- it is another tag
+                    if tags[content[i].tag] ~= nil then
+                        tags[content[i].tag](content[i].arg)
+                    elseif tags.closing[content[i]] ~= nil then
+                        tags.closing[content[i].tag](content[i].arg, content[i].contents)
+                    end
+                end
+            end
+        end,
+        ["A"] = function(args,content)
+            --link. argument is .kst URL
+            -- need to register a button by getting starting 2 positions, and ending 2 
+            for i = 1, #content do
+                if type(content[i]) == "string" then
+                    term.write(content[i],args)
+                elseif type(content[i]) == "table" then -- it is another tag
+                    if tags[content[i].tag] ~= nil then
+                        tags[content[i].tag](content[i].arg)
+                    elseif tags.closing[content[i]] ~= nil then
+                        tags.closing[content[i].tag](content[i].arg, content[i].contents)
+                    end
+                end
+            end
+        end,
+        ["D"] = function(args,content)
+            --downloads file at URL to computer, otherwise same as [A]
+        end,
+        ["NFP"] = function(args,content)
+            --don't use the paintutils api either - we need to measure its length
+            --draw a paintutils image
+        end,
+        ["NFT"] = function(args,content)
+            --draw a nitropaint image
+        end,
+        ["SKCH"] = function(arg,content)
+            --draw an image in oeed's format
+            --by no means important for release
+        end,
+        ["SCRIPT"] = function(arg,content)
+           -- sandboxed lua, but our own functions that we parse
+           --by no means important for release
+        end,
+        ["LIST"] = function(arg,content)
+           -- going to have to put special stuff in parser for this
+           -- alternatively we could just make one for list items
+           -- this could handle things nested in it differently, which would work
+           --by no means important for release
+        end,
+        ["H"] = function(arg,content)
+           -- write in block letters (we can load NFP images for this)
+           --by no means important for release
+        end,
+        ["SET"] = function(arg,content)
+           --sets cookie "arg" equal to "content"
+           --by no means important for release
         end
-        if paragraph == 0 then page = page:sub(tag) end
-      else
-        el = page:sub(tag,-1+tag+page:find("%]"))
-        if el == "[C:BLACK]" then
-          term.setTextColor(32768)
-        elseif el == "[C:RED]" then
-          term.setTextColor(16384)
-        elseif el == "[C:GREEN]" then
-          term.setTextColor(8192)
-        elseif el == "[C:BROWN]" then
-          term.setTextColor(4096)
-        elseif el == "[C:BLUE]" then
-          term.setTextColor(2048)
-        elseif el == "[C:PURPLE]" then
-          term.setTextColor(1024)
-        elseif el == "[C:CYAN]" then
-          term.setTextColor(512)
-        elseif el == "[C:LIGHTGRAY]" or el == "[C:LIGHTGREY]" then
-          term.setTextColor(256)
-        elseif el == "[C:DARKGRAY]" or el == "[C:DARKGREY]" or el == "[C:GRAY]" or el == "[C:GREY]" then
-          term.setTextColor(128)
-        elseif el == "[C:PINK]" then
-          term.setTextColor(64)
-        elseif el == "[C:LIME]" then
-          term.setTextColor(32)
-        elseif el == "[C:YELLOW]" then
-          term.setTextColor(16)
-        elseif el == "[C:LIGHTBLUE]" then
-          term.setTextColor(8)
-        elseif el == "[C:MAGENTA]" then
-          term.setTextColor(4)
-        elseif el == "[C:ORANGE]" then
-          term.setTextColor(2)
-        elseif el == "[C:WHITE]" then
-          term.setTextColor(1)
-        elseif el == "[C:THEMEFG]" then
-          term.setTextColor(themefore)
-        elseif el == "[C:THEMEDISABLED]" then
-          term.setTextColor(themeback)
-        elseif el == "[C:THEMEBG]" then
-          term.setTextColor(themehead)
-        elseif el == "[C:THEMETEXT]" then
-          term.setTextColor(themetext)
-        elseif el == "[C:THEMEDANGER]" then
-          term.setTextColor(themedang)
-        elseif el == "[HL:BLACK]" then
-          term.setBackgroundColor(32768)
-        elseif el == "[HL:RED]" then
-          term.setBackgroundColor(16384)
-        elseif el == "[HL:GREEN]" then
-          term.setBackgroundColor(8192)
-        elseif el == "[HL:BROWN]" then
-          term.setBackgroundColor(4096)
-        elseif el == "[HL:BLUE]" then
-          term.setBackgroundColor(2048)
-        elseif el == "[HL:PURPLE]" then
-          term.setBackgroundColor(1024)
-        elseif el == "[HL:CYAN]" then
-          term.setBackgroundColor(512)
-        elseif el == "[HL:LIGHTGRAY]" or el == "[HL:LIGHTGREY]" then
-          term.setBackgroundColor(256)
-        elseif el == "[HL:DARKGRAY]" or el == "[HL:DARKGREY]" or el == "[HL:GRAY]" or el == "[HL:GREY]" then
-          term.setBackgroundColor(128)
-        elseif el == "[HL:PINK]" then
-          term.setBackgroundColor(64)
-        elseif el == "[HL:LIME]" then
-          term.setBackgroundColor(32)
-        elseif el == "[HL:YELLOW]" then
-          term.setBackgroundColor(16)
-        elseif el == "[HL:LIGHTBLUE]" then
-          term.setBackgroundColor(8)
-        elseif el == "[HL:MAGENTA]" then
-          term.setBackgroundColor(4)
-        elseif el == "[HL:ORANGE]" then
-          term.setBackgroundColor(2)
-        elseif el == "[HL:WHITE]" then
-          term.setBackgroundColor(1)
-        elseif el == "[HL:THEMEFG]" then
-          term.setBackgroundColor(themefore)
-        elseif el == "[HL:THEMEDISABLED]" then
-          term.setBackgroundColor(themeback)
-        elseif el == "[HL:THEMEBG]" then
-          term.setBackgroundColor(themehead)
-        elseif el == "[HL:THEMETEXT]" then
-          term.setBackgroundColor(themetext)
-        elseif el == "[HL:THEMEDANGER]" then
-          term.setBackgroundColor(themedang)--[[ old method
-        elseif el == "[CENTER]" then
-          local ox, oy = term.getCursorPos()
-          if ox ~= 1 then term.setCursorPos(1,1+oy) end
-          centerText(page:sub(9,-2+tag+page:find("%[/CENTER%]")))
-          page = page:sub(tag+page:find("%[/CENTER"))
-          term.setCursorPos(1,1+oy)
-          if ox ~= 1 then term.setCursorPos(1,2+oy) end]]--
-        elseif el == "[P]" or el == "[CELL:51]" then
-          if paragraph == 0 then
-            local ox, oy = term.getCursorPos()
-            cellstart = ox
-            paragraph = 51
-          else
-            crash(1)
-            break
-          end
-        elseif el == "[/P]" or el == "[/CELL]" then
-          if paragraph == 0 then
-            paragraph = 0
-          else crash(2) return false end
-        elseif el == "[CENTER]" then
-          if align == 1 then
-            local ox, oy = term.getCursorPos()
-            if ox ~= 1 then term.setCursorPos(1,1+oy) end
-            align = 2
-            wid = string.len(stripTags(page:sub(1,page:find("%[/CENTER%]"))))
-          elseif align == 2 then
-            crash(1)
-            break
-          end
-        elseif el == "[/CENTER]" then
-          if align == 2 then
-            local ox, oy = term.getCursorPos()
-            align = 1
-            term.setCursorPos(1,1+oy)
-            offset = 0
-          else crash(2) return false end
-        elseif el == "[UP]" then
-          local ox, oy = term.getCursorPos()
-          term.setCursorPos(ox,oy-1)
-        elseif el == "[CR]" then
-          local ox, oy = term.getCursorPos()
-          term.setCursorPos(1,oy)
-        elseif el == "[BR]" then
-          local ox, oy = term.getCursorPos()
-          term.setCursorPos(1,oy+1)
-        elseif el == "[LF]" then
-          local ox, oy = term.getCursorPos()
-          term.setCursorPos(ox,oy+1)
-        elseif el == "[TOP]" then
-          local ox, oy = term.getCursorPos()
-          term.setCursorPos(1,4)
-        elseif el == "[END]" then
-          break--[[
-        elseif el == "[PROBLEM]" then
-          if align ~= 1 then crash(1) return false end
-          --if issue == 0 then crash(6) return false end
-          term.write(string.format("%03d",tostring(issue)))
-          term.write(" "..getError(issue))--]]
-        elseif el == "[IMAGE]" then
-          local ox, oy = term.getCursorPos()
-          local src = ""
-          local url = page:sub(8,-1+page:find("%[/IMAGE%]"))
-          local islocal = false
-          local img = ""
-          if url:sub(1,7) == "http://" then
-            src = url
-          elseif url:sub(1,8) == "scape://" then
-            src = url
-            islocal = true
-          else
-            src = string.sub(literal[activetab],1,-string.find(literal[activetab]:reverse(),"/"))..page:sub(8,-1+page:find("%[/IMAGE%]"))
-            if src:sub(1,8) == "scape://" then islocal = true end
-          end
-          log(src)
-          if islocal then
-            src = src:sub(8)
-            img = readconfig("pages/"..src)
-          else
-            print(src)
-            img = http.get(src).readAll()
-          end
-          local filetype = string.sub(src,1-string.find(src:reverse(),"%."))
-          if filetype == "nfp" then
-            if islocal then
-              --img = paintutils.loadImage(src)
-              paintutils.drawImage(paintutils.loadImage("kst/pages/"..src),ox,oy)
-            else crash(8) return false end
-          else
-            crash(7)
-          end
-          page = page:sub(1+page:find("%[/IMAGE"))
-        elseif el == "[DONTCOLORLINKS]" then
-          dontcolorlinks = true
-        elseif el == "[COLORLINKS]" then
-          dontcolorlinks = false
-        elseif el == "[A]" then
-          links[activetab][0] = links[activetab][0] + 1
-          links[activetab][links[activetab][0]] = {}
-          links[activetab][links[activetab][0]][0], links[activetab][links[activetab][0]][1] = term.getCursorPos()
-          links[activetab][links[activetab][0]][2] = page:sub(4,-1+page:find(" "))
-          page = page:sub(1+page:find(" "))
-          if not dontcolorlinks then term.setTextColor(512) end
-        elseif el == "[/A]" then
-          local linklen = term.getCursorPos()
-          links[activetab][links[activetab][0]][3] = linklen + links[activetab][links[activetab][0]][1] - 1
+    },
+    ["EAT"] = function(arg)
+        --deletes cookie "arg"
+    end,
+    ["FEAST"] = function()
+        --deletes all cookies set by the site
+    end,
+    ["BG"] = function(arg)
+        term.setBackgroundColor(color[arg])
+    end,
+    ["BR"] = function()
+        --linebreak
+        local x,y = term.getCursorPos()
+        term.setCursorPos(1,y+1)
+    end,
+    ["LN"] = function()
+        --linebreak, but only if the cursor is not at the beginning
+        local x,y = term.getCursorPos()
+        if x ~= 1 then
+            term.setCursorPos(1,y+1)
         end
-        if el ~= "[A]" then page = page:sub(tag+page:find("%]")) end
-      end
-    end
-  end
-end
-function go()
-  --issue = 0
-  ui()
-  local event, param1, param2, param3 = os.pullEvent()
-  if event == "mouse_click" and param1 == 1 then
-    if param2 > 2 and param2 < 38 and param3 == 2 then
-      if not editing then
-        editing = true
-        address[0] = address[activetab]
-      else
-        if selected then selected = false else selected = true end
-      end
-    elseif address[activetab] ~= "" and param2 > 44 and param2 < 47 and param3 == 2 then
-      selected = false
-      editing = false
-      address[activetab] = fixaddress(address[0])
-      refresh(address[activetab])
-    else
-      editing = false
-      selected = false
-      if param2 < 51 and (param2 - 2) % 17 < 15 and param3 == 1 then
-        local tabclicked = 1 + math.floor((param2 - 2) / 17)
-        if (param2 - 2) % 17 == 14 and tabclicked <= tabs then
-          if tabs * 2 == tabclicked + activetab then
-            activetab = activetab - 1
-          elseif tabclicked == activetab - 1 then
-            movetab(activetab,tabclicked)
-            if activetab < 3 and tabs == 3 then movetab(activetab + 1,activetab) end
-            activetab = activetab - 1
-          elseif tabclicked == 1 and activetab == 3 then
-            movetab(2,1)
-            movetab(3,2)
-            activetab = 2
-          elseif 2 == tabclicked + activetab then
-            movetab(2,1)
-            movetab(3,2)
-          else
-            movetab(3,2)
-          end
-          tabs = tabs - 1
+    end,
+    ["CR"] = function()
+        --carraige return - move cursor x to the first spot in the container
+        local x,y = term.getCursorPos()
+        term.setCursorPos(1,y)
+    end,
+    ["LF"] = function()
+        --move cursor down one (linefeed)
+        local x,y = term.getCursorPos()
+        term.setCursorPos(x,y+1)
+    end,
+    ["UP"] = function()
+        --move cursor up one
+        local x,y = term.getCursorPos()
+        term.setCursorPos(x,y-1)
+    end,
+    ["SKIP"] = function(args)
+        --move right X places
+        local pos = {term.getCursorPos()}
+        arg = tonumber(args) or 0
+        term.setCursorPos(pos[1]+arg,pos[2])
+    end,
+    ["BS"] = function(args)
+        --move left X places
+        local pos = {term.getCursorPos()}
+        arg = tonumber(args) or 0
+        term.setCursorPos(pos[1]+arg,pos[2])
+    end,
+    ["TOP"] = function(args)
+        --move cursor to top left corner of page or cell
+        term.setCursorPos(1,1)
+    end,
+    ["CLEAR"] = function(args)
+        --disregard everything before the last instance of this tag - actually don't, because containers
+        term.clear()
+    end,
+    ["END"] = function(args)
+        --disregard everything after the first instance of this tag
+        --this function technically should never be reached
+        return "doneloading"
+    end,
+    ["NSFW"] = function(args)
+        --throw an error if the NSFW filter is on
+        --this variable should be defined in the gui, not here
+        local nsfw = true
+    end,
+    ["HR"] = function(args)
+        --draw a horizontal bar
+        --a bunch of gray dashes that are as wide as the container
+        local pos = {term.getCursorPos()}
+        if pos[1] ~= 1 then
+            term.setCursorPos(1,pos[2]+1)
+        end
+        local ccolor = {term.getTextColor()}
+        term.setTextColor(args)
+        for i = 1,(pos[1]-1)-pos[1] do
+            term.write("-")
+        end
+        term.setTextColor(ccolor)
+    end,
+    ["REFRESH"] = function(arg)
+        --refresh the page in X seconds. no faster than 2? seconds
+    end,
+    ["REDIRECT"] = function(arg)
+        --same as [A] but go directly to the specified page
+    end,
+    --afterwards, in order by importance - lists, scripts, SKCH/NFA images, big letters, forms, tables
+}
+setmetatable(tags,{
+    __call = function(self,tag,arg)
+        arg = ":"..arg or ""
+        if self[tag] ~= nil or self.closing[tag]  ~= nil then
+            return true
         else
-          if tabclicked > tabs then
-            if (param2 - 2) % 17 < 3 then newtab() end
-          else
-            activetab = tabclicked
-          end
+            return "["..tag..arg.."]"
         end
-      end
-    end
-  elseif editing and event == "char" then
-    if selected then
-      address[0] = param1
-      selected = false
-    else
-      address[0] = address[0]..param1
-    end
-  elseif editing and event == "key" then
-    if param1 == 14 then
-      if selected then
-        address[0] = ""
-        selected = false
-      else
-        if string.len(address[0]) > 0 then address[0] = address[0]:sub(1,-2) end
-      end
-    elseif param1 == 28 then
-      selected = false
-      editing = false
-      if address[0] ~= "" then
-        address[activetab] = fixaddress(address[0])
-        refresh(address[activetab])
-      end
-    end
-  end
+    end})
+local function prerequisition(siteContents)
+    -- [END]
+    -- This might leave a [ on the page. I can't remember if we fixed that
+    siteContents = siteContents:sub(1,siteContents:find("%[END%]")-1)
+    -- [ID]
+    siteContents = siteContents:gsub("%[ID%]",os.getComputerID())
+    -- [HOSTNAME] - get the server's name from the DNS
+    -- [CHECK:arg] - replace with contents of cookie "arg"
+    -- [CLOSE] - just don't parse, close the tab
 end
-function ui()
-  term.setTextColor(themefore)
-  term.setCursorPos(1,1)
-  term.setBackgroundColor(themehead)
-  term.write("                                                   ")
-  term.setTextColor(themetext)
-  term.setBackgroundColor(themefore)
-  term.setCursorPos(1,2)
-  term.write("                                                   ")
-  term.setCursorPos(1,3)
-  term.write("                                                   ")
-  --address bar and buttons
-  term.setBackgroundColor(1)
-  term.setCursorPos(3,2)
-  term.write("                                   ")
-  term.setBackgroundColor(themefore)
-  term.setCursorPos(39,2)
-  term.setTextColor(themeback)
-  if history[activetab][0] > 1 then term.setTextColor(themedang) end
-  term.write("<-")
-  term.setCursorPos(42,2)
-  term.setTextColor(themeback)
-  term.write("->")
-  term.setCursorPos(45,2)
-  term.setTextColor(themeback)
-  if address[activetab] ~= "" then term.setTextColor(themedang) end
-  term.write("rf")
-  term.setCursorPos(48,2)
-  term.setTextColor(themeback)
-  term.write("-(")
-  --tabs
-  local n = 0
-  while n < tabs do
-    term.setTextColor(themetext)
-    term.setCursorPos((17*n)+2,1)
-    if activetab == n + 1 then term.setBackgroundColor(themefore) else term.setBackgroundColor(themeback) end
-    term.write("               ")
-    term.setCursorPos((17*n)+3,1)
-    if tostring(string.find(title[1+n],"%[ERROR%]")) ~= "nil" then term.setTextColor(themedang) end
-    term.write(string.gsub(string.sub(title[1+n],1,12),"%[ERROR%]",""))
-    term.setCursorPos((17*n)+16,1)
-    term.setTextColor(themedang)
-    term.write("x")
-    if n == tabs - 1 then
-      term.setCursorPos((17*n)+19,1)
-      term.setBackgroundColor(themeback)
-      term.setTextColor(themetext)
-      term.write(" + ")
+local function parser(siteContents)
+    siteContents = prerequisition(siteContents)
+    local siteData = {}
+    local curPath = ""
+        
+    local function getfield (f)
+        local v = siteData    -- start with the table of globals
+        if f ~= "" then
+            for w in string.gmatch(f, "[%w_]+") do
+                w = tonumber(w) or w
+                v = v[w]
+            end
+        end
+        if type(v) == "nil" then
+          print(f)
+          print(textutils.serialize(siteData))
+        end
+        return v
     end
-    n = n + 1
-  end
-  term.setBackgroundColor(1)
-  term.setCursorPos(3,2)
-  if editing then
-    term.setTextColor(themedang)
-    term.write(address[0]:sub(-33))
-    if not selected then term.write("_") end
-  else
-    term.setTextColor(themetext)
-    term.write(address[activetab]:sub(1,35))
-  end
-  if selected then
-    term.setBackgroundColor(512)
-    term.setTextColor(1)
-    term.setCursorPos(3,2)
-    term.write(address[0]:sub(1,35))
-  end
-  term.setBackgroundColor(themefore)
-  term.setTextColor(themetext)
-  term.setCursorPos(string.len(title[activetab]),3)
-  centerText(string.gsub(title[activetab],"%[ERROR%]",""))
-  if drawn ~= content[activetab] then showsite() end
-  term.setBackgroundColor(themeback)
-  term.setTextColor(themefore)
-  local bar = 0
-  while bar < 16 do
-    bar = bar + 1
-    term.setCursorPos(51,3+bar)
-    if bar == 1 or bar == 15 then term.write("#") end
-    if bar == 16 then term.write("_") end
-    term.write(" ")
-  end
+
+    local function setfield (f,v)
+        local t = siteData           -- start with the table of globals
+            for w, d in string.gmatch(f, "([%w_]+)(.?)") do
+              w = tonumber(w) or w
+                if d == "." then      -- not last field?
+                    t[w] = t[w] or {}   -- create table if absent
+                    t = t[w]            -- get the table
+                else         
+                if type(t[#t]) == "string" and type(v) == "string" then
+                    t[#t] = t[#t] .. v
+                else
+                    t[w] = v            -- do the assignment
+                end
+            end
+        end
+    end
+    
+    local function processBlock(str)
+        local content = {}
+        repeat
+            local bx,ex = str:find("%[[^ %s%]]+%]")
+            if bx==nil then
+                table.insert(content,str)
+                str = ""
+            else
+                local tag = str:sub(bx,ex)
+                local argLoc = tag:find(":") or #tag
+                local t = tag:sub(2,argLoc-1)
+                local a = tag:sub(argLoc+1, #tag-1)
+                if type(tags.closing[t]) ~= "nil" then
+                    table.insert(content,str:sub(1,bx-1))
+                    table.insert(content,{tag = t,arg = a,contents = {}})
+                    str = str:sub(ex+1,#str)
+                elseif type(tags[t]) ~= "nil" then
+                    table.insert(content,str:sub(1,bx-1))
+                    table.insert(content,{tag = t, arg = a})
+                    str = str:sub(ex+1, #str)
+                elseif type(tags.closing[t:sub(2,#t)]) ~= "nil" then
+                    table.insert(content,str:sub(1,bx-1))
+                    table.insert(content,{tag = t})
+                    str = str:sub(ex+1, #str)
+                else
+                    if type(content[#content]) =="string" then
+                        content[#content] = content[#content]..str:sub(1,ex)
+                        str = str:sub(ex+1,#str)
+                    else
+                        table.insert(content,str:sub(1,ex))
+                        str = str:sub(ex+1,#str)
+                    end
+                end
+            end
+        until #str == 0
+        return content
+    end    
+    
+    local function tokenise(...)
+        local sLine = table.concat({...}," ")
+        local tWords = {}
+        local bQuoted = false
+        for match in string.gmatch(sLine .. "\"", "(.-)\"") do
+            if bquoted == false then
+                table.insert( tWords, match )
+            else
+                for m in string.gmatch( match, "[^ \t]+%s*" ) do
+                    table.insert( tWords, m )
+                end
+            end
+        end
+        return tWords
+    end
+    
+    for _,block in pairs(tokenise(siteContents)) do
+        local contents = processBlock(block)
+        for i = 1, #contents do
+            local curFile = getfield(curPath)
+            if type(contents[i]) == "string" then -- its a word not a tag
+                if type(curFile[#curFile]) == "string" then
+                    setfield( curPath.."."..#curFile , contents[i] )
+                elseif type(curFile[#curFile]) == "table" then
+                    setfield( curPath.."."..(#curFile+1) , contents[i] )
+                elseif #curFile == 0 then
+                    setfield( curPath.."."..1 , contents[i] )
+                end
+                
+            elseif type(contents[i]) == "table" then -- its a tag
+                if contents[i].tag:sub(1,1)=="/" then
+                    local str = curPath:sub(1,-10)
+                    curPath = str:sub(1,-(#str:gsub("%w+%.",""))+2)
+                elseif type(tags[contents[i].tag]) ~= "nil" then
+                    setfield( curPath.."."..(#curFile+1) , contents[i])
+                elseif type(tags.closing[contents[i].tag]) ~= "nil" then
+                    curPath = curPath.."."..#curFile+1
+                    setfield( curPath , contents[i] )
+                    curPath = curPath..".".."contents"
+                end
+            else
+                error("Invalid data type during parsing: " .. type(contents[i]))
+            end
+        end
+    end
+    return siteData
 end
-boot()
+
+local function assemble(tbl)
+    for i = 1, #tbl do
+        if type(tbl[i]) == "string" then
+            term.write(tbl[i])
+        elseif type(tbl[i]) == "table" then
+            if tags[tbl[i].tag] then
+                tags[tbl[i].tag](tbl[i].arg)
+            elseif tags.closing[tbl[i].tag] then
+                tags.closing[tbl[i].tag](tbl[i].arg,tbl[i].contents)
+            end
+        end
+    end
+end
+-- END kst/parsers/ksml/coal
+-- BEGIN kristscape
+
+local headers = {}
+local function readurl(url)
+    local addressbar = url
+    if addressbar:find("://") == nil then
+        addressbar = "http://" .. addressbar
+    end
+    addressbar = addressbar:gsub(".com",".kst")
+    addressbar = addressbar:gsub(".org",".kst")
+    addressbar = addressbar:gsub(".net",".kst")
+    
+    local protocol = string.sub(addressbar,1,string.find(addressbar,"://")-1)
+    local name = ""
+    if protocol == "http" then
+        name = string.sub(url,8,string.find(url,".kst")-1)
+        name = http.get("http://krist.ceriat.net/?a="..name,nil,headers).readAll()
+    elseif protocol == "rdnt"
+        
+    elseif protocol == "knet"
+        
+    elseif protocol == "file"
+        
+    elseif protocol == "scape"
+        name = string.sub(url,string.find(url,"://")+3,string.find(url,"/"-1))
+    end
+    url = url:sub(url:find("://"))
+    local destination = url:sub(url:find("/")+1)
+    
+    
+    return addressbar, protocol, destination
+end
+--END kristscape
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--[[To Do list
+1: Finish Tags
+2: Refresh
+3: Redirect
+4: Cells
+5: Bugfixes
+6: Donuts
+]]--
+--[[Tags no longer in use
+    ["COLORLINKS"] = function(arg)
+        --true or false - if true (default) [A] will draw in cyan text
+    end,
+    Reason no longer in use:actually don't do this one. we can just put a [C] tag in the link's text, and have [A] add cyan to the color table
+]]--
+--[[ New parser example
+
+{    --start of the site Contents
+    { -- opening of a new tag
+        tag = "C",
+        arg = "arg",
+        contents = { -- what is between the opening and closing tag
+             "Hello my name is text",
+             { -- opening of a tag
+                 tag = "BG",
+                 arg = "RED",
+                 contents = { -- only closing tags will have this
+                      "More Txt"   
+                 }    
+             },
+             "Some more text"   
+        }    --closing of a tag
+    }   --closing of the tag
+}
+    
+]]--
+
