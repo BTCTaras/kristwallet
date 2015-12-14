@@ -787,18 +787,21 @@ function wallet()
 	end
 	
 	if xPos and yPos then
+		local listofnames = split(lexmm, ";")
 		if yPos == 1 and xPos >= 46 then
 			page = 16
 		elseif lem and yPos >= 3 and isEdit(xPos) then
-			local listofnames = split(lexmm, ";")
-			page = 17
-			local nameclicked = yPos - 3
-			subject = listofnames[nameclicked]
+			if listofnames[yPos - 3] then
+				page = 17
+				local nameclicked = yPos - 3
+				subject = listofnames[nameclicked]
+			end
 		elseif lem and yPos >= 3 and isSend(xPos) then
-			local listofnames = split(lexmm, ";")
-			page = 18
-			local nameclicked = yPos - 3
-			subject = listofnames[nameclicked]
+			if listofnames[yPos - 3] then
+				page = 18
+				local nameclicked = yPos - 3
+				subject = listofnames[nameclicked]
+			end
 		end
 	end
   --[[
