@@ -45,6 +45,19 @@ local maxspace = ""
 local ar = 0
 local amt = 0
 local availability = 0
+
+local function split(inputstr, sep)
+        if sep == nil then
+                sep = "%s"
+        end
+        local t={} ; i=1
+        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+                t[i] = str
+                i = i + 1
+        end
+        return t
+end
+
 local function boot()
   checkdir()
   checkdir()
@@ -1555,25 +1568,26 @@ function hud()
     term.setBackgroundColor(1)
     term.setCursorPos(18,3)
     local namelist = http.get(readconfig("syncnode").."?listnames="..address).readAll()
-    if string.len(namelist) == 0 then
+	local splitname = split(namelist, ";")
+    if #splitname == 0 then
       term.setTextColor(256)
       term.write("No names to display!")
     else
-      local namecount = 0
+      local namecount = 1
       repeat
-				local thisname = namelist:sub(0,namelist:find(";")-1)
+				local thisname = splitname[namecount]
+				--namelist:sub(0,namelist:find(";")-1)
         term.setTextColor(32768)
         term.setCursorPos(18,3+namecount)
-        term.write(string.sub(thisname..".kst",0,20))
+        term.write(splitname[namecount]..".kst")
         term.setCursorPos(39,3+namecount)
         term.setTextColor(512)
         if thisname == "a" or thisname == "name" or thisname == "owner" or thisname == "updated" or thisname == "registered" or thisname == "expires" or thisname == "id" or thisname == "unpaid" then term.setTextColor(256) end
         term.write("Edit Send ")
         term.setTextColor(256)
         term.write("Go")
-        namelist = namelist:sub(1+namelist:find(";"))
         namecount = namecount + 1
-      until string.len(namelist) == 0
+      until namecount == #splitname+1
     end
     --term.write("a.kst                Edit Send Go")
     term.setBackgroundColor(1)
