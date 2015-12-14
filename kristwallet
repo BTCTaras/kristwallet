@@ -655,6 +655,14 @@ function wallet()
       page = 0
     end
   end
+  local lexm = http.get(readconfig("syncnode").."?listnames="..address)
+  local lem = false
+  local lexmm
+  if lexm.readAll then
+	lem = true
+	lexmm = lexm.readAll()
+  end
+	
   if page == 1 then
     balance = tonumber(http.get(readconfig("syncnode").."?getbalance="..address).readAll())
     if (yPos-7)%5 == 0 and yPos >= 7 and xPos >= 26 and xPos <= 35 then
@@ -770,6 +778,30 @@ function wallet()
       end
     end
   elseif page == 15 then
+	
+	local function isEdit(xpo)
+		return xpo >= 39 and xpo <= 42
+	end
+	local function isSend(xpo)
+		return xpo >= 44 and xpo <= 47
+	end
+	
+	if xPos and yPos then
+		if yPos == 1 and xPos >= 46 then
+			page = 16
+		elseif lem and yPos >= 3 and isEdit(xPos) then
+			local listofnames = split(lexmm, ";")
+			page = 17
+			local nameclicked = yPos - 3
+			subject = listofnames[nameclicked]
+		elseif lem and yPos >= 3 and isSend(xPos) then
+			local listofnames = split(lexmm, ";")
+			page = 18
+			local nameclicked = yPos - 3
+			subject = listofnames[nameclicked]
+		end
+	end
+  --[[
     if yPos == 1 and xPos >= 46 then
       page = 16
     elseif yPos >= 3 and xPos >= 39 and xPos <= 42 then
@@ -791,6 +823,7 @@ function wallet()
       until nameclicked == 0 end
       subject = listofnames:sub(0,listofnames:find(";")-1)
     end
+	]]--
   elseif page == 8 then
     if yPos == 3 and xPos >= 19 and xPos <= 30 then
       page = 9
@@ -1569,6 +1602,8 @@ function hud()
     term.setCursorPos(18,3)
     local namelist = http.get(readconfig("syncnode").."?listnames="..address).readAll()
 	local splitname = split(namelist, ";")
+	
+
     if #splitname == 0 then
       term.setTextColor(256)
       term.write("No names to display!")
