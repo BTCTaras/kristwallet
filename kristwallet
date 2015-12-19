@@ -1,5 +1,5 @@
 --[[-----------------------------------------------
-|           KristWallet by cossacksson            |
+|               KristWallet by 3d6                |
 ---------------------------------------------------
 | This is the reference wallet for Krist.         |
 | It is the basic definition of a functional      |
@@ -15,7 +15,7 @@
 ---------------------------------------------------
 | This wallet will NEVER save passwords anywhere. |]]local --[[pretty sneaky, huh?]]
 -----------------------------------------------]]--
-                   version = 11
+                   version = 12
 local latest = 0
 local balance = 0
 local balance2 = 0
@@ -1142,6 +1142,9 @@ function hud()
       term.write("The crash on trying to edit a name is now fixed btw")
     end
   elseif page == 2 then
+    term.setCursorPos(18,1)
+    term.write("Please wait...")
+    os.sleep(0)
     subbal = http.get(readconfig("syncnode").."?getbalance="..subject).readAll()
     subtxs = http.get(readconfig("syncnode").."?listtx="..subject).readAll()
     log("Loaded transactions for address "..subject)
