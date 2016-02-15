@@ -15,7 +15,7 @@
 ---------------------------------------------------
 | This wallet will NEVER save passwords anywhere. |]]local
 -----------------------------------------------]]--
-                   version = 14
+                   version = 15
 local latest = 0
 local balance = 0
 local balance2 = 0
@@ -45,6 +45,7 @@ local maxspace = ""
 local ar = 0
 local amt = 0
 local availability = 0
+local wallet, hud, update, settle, log, readconfig, checkdir, openwallet, makev2address
 
 local function split(inputstr, sep)
         if sep == nil then
@@ -115,13 +116,13 @@ function update()
   end  
 end
 function log(text)
-  logfile = fs.open("kst/log_wallet","a")
+  local logfile = fs.open("kst/log_wallet","a")
   logfile.writeLine(tostring(os.day()).."-"..tostring(os.time()).."/"..text)
   logfile.close()
 end
-function checkfile(path,default)
+local function checkfile(path,default)
   if not fs.exists("kst/"..path) or path == "syncnode" then
-    file = fs.open("kst/"..path,"w")
+    local file = fs.open("kst/"..path,"w")
     file.writeLine(default)
     file.close()
     log("Created file "..path)
@@ -132,7 +133,7 @@ function checkfile(path,default)
 end
 function readconfig(path)
   if fs.exists("kst/"..path) then
-    file = fs.open("kst/"..path,"r")
+    local file = fs.open("kst/"..path,"r")
     local context = file.readAll()
     file.close()
     if context == "true" then return true end
@@ -147,7 +148,7 @@ function settle()
   if term.isColor() and pocket then gui = 2 end
 end
 local function drawKrist()
-  posx, posy = term.getCursorPos()
+  local posx, posy = term.getCursorPos()
   term.setBackgroundColor(1)
   term.setTextColor(32)
   term.write("/")
@@ -981,11 +982,11 @@ function wallet()
   end
   if pagebefore ~= page then log("Switched to page "..page) end
 end
-function drawTab(text)
+local function drawTab(text)
   term.setBackgroundColor(512)
   term.write(text)
 end
-function drawBtn(text)
+local function drawBtn(text)
   term.setBackgroundColor(32)
   term.write(text)
 end
@@ -1743,19 +1744,3 @@ function hud()
   end
 end
 boot()
-wallet = nil
-checkfile = nil
-posx = nil
-update = nil
-log = nil
-checkdir = nil
-readconfig = nil
-file = nil
-drawTab = nil
-makev2address = nil
-logfile = nil
-posy = nil
-openwallet = nil
-settle = nil
-drawBtn = nil
-hud = nil
