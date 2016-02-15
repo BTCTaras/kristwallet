@@ -13,9 +13,9 @@
 | it interact with a currency or network other    |
 | than Krist, please give me credit. Thanks <3    |
 ---------------------------------------------------
-| This wallet will NEVER save passwords anywhere. |]]local --[[pretty sneaky, huh?]]
+| This wallet will NEVER save passwords anywhere. |]]local
 -----------------------------------------------]]--
-                   version = 13
+                   version = 14
 local latest = 0
 local balance = 0
 local balance2 = 0
@@ -372,33 +372,21 @@ end
 function checkdir()
   if fs.isDir("kst") then
     math.randomseed(os.time()) 
-    checkfile("log_wallet",[[-----KRISTWALLET LOG FILE-----
---If this file becomes excessively large, you
---should save a copy to a disk and stow it away.
---You should not destroy logs - they may help any
---detectives recover stolen krist, or at least find
---the perpetrator! Happy Kristmas! -cossacksson.
----------------------------------------------------]])
-    checkfile("enabled","true") --Disabling this just makes KristWallet refuse to start. No danger of Krist loss.
+    checkfile("log_wallet","-----KRISTWALLET LOG FILE-----")
+    checkfile("enabled","true") --Disabling this just makes KristWallet refuse to start.
     checkfile("sweepv1","true")
-    checkfile("appendhashes","true") --Disabling this makes it possible to use KristWallet with extremely old addresses. I doubt anyone but me ever will.
+    checkfile("appendhashes","true") --Disabling this makes it possible to use KristWallet with extremely old addresses.
     checkfile("autoupdate","true")
     checkfile("whitelisted","false")
     checkfile("rebootonexit","false")
-    checkfile("locksettings","false")
-    checkfile("usev1address","false")
     checkfile("autologin","false")
     checkfile("keyAL",sha256(""))
-    checkfile("keyLV",sha256(math.random(10)..os.time())) --This is where the local vault's krist is stored. DO NOT DESTROY EVER.
+    checkfile("keyLV",sha256(math.random(1000000)..os.time())) --This is where the local vault's krist is stored. DO NOT DESTROY!
     checkfile("versionserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/staticapi/version")
     checkfile("updateserver","https://raw.githubusercontent.com/BTCTaras/kristwallet/master/kristwallet")
     checkfile("syncnode","http://krist.ceriat.net/")
-    checkfile("whitelist",[[kg5dc1lzo0
-a5dfb396d3]])
-    checkfile("blacklist",[[ke3kjplzsz
-kojddz0uzw
-8c11bb0d2d
-]])
+    checkfile("whitelist","")
+    checkfile("blacklist","")
   else
     fs.makeDir("kst")
   end
@@ -459,8 +447,6 @@ function openwallet()
   if balance > 0 and readconfig("sweepv1") then local transaction = readURL(readconfig("syncnode").."?pushtx&q="..address.."&pkey="..masterkey.."&amt="..balance); log("Swept hex address") end
   balance = tonumber(readURL(readconfig("syncnode").."?getbalance="..address))
 	if balance >= 100000 then log("Woah! There's a small fortune here!") elseif balance > 0 then log("There is some krist here!") end
-	if balance == 420 then log("This is such a blazing balance") end
-	if balance == 42 then log("Hey, Chuck") end
   if readconfig("whitelisted") then
     local whitelist = readconfig("whitelist")
     if string.find(whitelist, address) == nil then
@@ -483,7 +469,6 @@ function openwallet()
       os.sleep(3)
     end
   end
-  if readconfig("usev1address") then address = addressv1 end
   addresslv = makev2address(readconfig("keyLV"))
   log("Loaded local vault")
 end
@@ -628,8 +613,33 @@ local function postgraphic(px,py,id)
     term.write(".kst")
   elseif id == 8 then
     --Name sent
+    term.setCursorPos(px+1,py+3)
+    term.setBackgroundColor(16384)
+    term.setTextColor(4)
+    term.write(".kst")
+    term.setTextColor(16384)
+    term.setBackgroundColor(1)
+    term.setCursorPos(px+2,py)
+    term.write("/\\")
+    term.setCursorPos(px+2,py+1)
+    term.write("||")
   elseif id == 9 then
     --Name received
+    term.setCursorPos(px+1,py+3)
+    term.setBackgroundColor(16384)
+    term.setTextColor(4)
+    term.write(".kst")
+    term.setTextColor(8192)
+    term.setBackgroundColor(1)
+    term.setCursorPos(px+1,py)
+    term.write("||")
+    term.setCursorPos(px+1,py+1)
+    term.write("\\/")
+    term.setTextColor(16384)
+    term.setCursorPos(px+3,py)
+    term.write("/\\")
+    term.setCursorPos(px+3,py+1)
+    term.write("||")
   end
 end
 function wallet()
@@ -754,9 +764,6 @@ function wallet()
     if yPos == 4 and xPos >= 19 and xPos <= 31 then
       page = 10
     end
-    if yPos == 5 and xPos >= 19 and xPos <= 31 then
-      --page = 11
-    end
     if yPos == 3 and xPos >= 35 and xPos <= 48 then
       page = 6
     end
@@ -816,35 +823,15 @@ function wallet()
 			end
 		end
 	end
-  --[[
-    if yPos == 1 and xPos >= 46 then
-      page = 16
-    elseif yPos >= 3 and xPos >= 39 and xPos <= 42 then
-      page = 17
-      local listofnames = readURL(readconfig("syncnode").."?listnames="..address)
-      local nameclicked = yPos - 3
-      if nameclicked > 0 then repeat
-        listofnames = listofnames:sub(1+listofnames:find(";"))
-        nameclicked = nameclicked - 1
-      until nameclicked == 0 end
-      subject = listofnames:sub(0,listofnames:find(";")-1)
-    elseif yPos >= 3 and xPos >= 44 and xPos <= 47 then
-      page = 18
-      local listofnames = readURL(readconfig("syncnode").."?listnames="..address)
-      local nameclicked = yPos - 3
-      if nameclicked > 0 then repeat
-        listofnames = listofnames:sub(1+listofnames:find(";"))
-        nameclicked = nameclicked - 1
-      until nameclicked == 0 end
-      subject = listofnames:sub(0,listofnames:find(";")-1)
-    end
-	]]--
   elseif page == 8 then
     if yPos == 3 and xPos >= 19 and xPos <= 30 then
       page = 9
     end
     if yPos == 3 and xPos >= 35 and xPos <= 47 then
       page = 16
+    end
+    if yPos == 4 and xPos >= 35 and xPos <= 47 then
+      --page = 18
     end
     if yPos == 4 and xPos >= 19 and xPos <= 29 then
       page = 13
@@ -859,11 +846,10 @@ function wallet()
       pagespace = readURL(readconfig("syncnode").."?name_transfer&pkey="..masterkey.."&name="..subject.."&q="..maxspace)
 			if pagespace == "Success" then
 			end
-				term.write("Transfer request broadcasted")
+				term.write("Name transferred")
 				log("Tried sending a name to "..maxspace)
 				os.sleep(3)
 				page = 15
-				--im drunk on water right now
 		end
   elseif page == 16 then
     if yPos == 4 and xPos >= 25 then
@@ -1072,18 +1058,20 @@ function hud()
     term.setTextColor(32768)
     term.setCursorPos(19,5)
     local recenttransactions = ""
-    --if tostring(balance) ~= 'nil' then recenttransactions = readURL(readconfig("syncnode").."?listtx="..address.."&overview") end
+    if tostring(balance) ~= 'nil' then recenttransactions = readURL(readconfig("syncnode").."?listtx="..address.."&overview") end
     local txtype = 0
     local graphics = 0
     if string.len(recenttransactions) > 25 then
       repeat
         if string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == "N/A(Mined)" then txtype = 1
         elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == "N/A(Names)" and tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) == 0 then txtype = 7
+        elseif tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) == 0 then txtype = 9
         elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == "N/A(Names)" then txtype = 6
         elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == address then txtype = 4
         elseif string.sub(recenttransactions,13+(31*graphics),22+(31*graphics)) == addressv1 then txtype = 5
         elseif tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) < 0 then txtype = 2
         elseif tonumber(string.sub(recenttransactions,23+(31*graphics),31+(31*graphics))) > 0 then txtype = 3
+		else txtype = 8
         end
         postgraphic(19,5+(5*graphics),txtype)
         term.setCursorPos(26,5+(5*graphics))
@@ -1096,6 +1084,8 @@ function hud()
         elseif txtype == 5 then term.write("Imported")
         elseif txtype == 6 then term.write("Name registered")
         elseif txtype == 7 then term.write("Name operation")
+        elseif txtype == 8 then term.write("Unknown")
+        elseif txtype == 9 then term.write("Name transfer")
         end
         term.setCursorPos(26,6+(5*graphics))
         if txtype == 4 then
@@ -1112,7 +1102,7 @@ function hud()
         term.setCursorPos(26,7+(5*graphics))
         term.setTextColor(32768)
         if txtype ~= 6 then term.setTextColor(512) end
-        if txtype > 1 and txtype < 6 then term.write(string.sub(recenttransactions,13+(31*graphics),22+(31*graphics))) end
+        if txtype == 9 or (txtype > 1 and txtype < 6) then term.write(string.sub(recenttransactions,13+(31*graphics),22+(31*graphics))) end
         --if txtype == 6 then term.write(".kst") end
         term.setCursorPos(26,8+(5*graphics))
         term.setTextColor(128)
@@ -1129,12 +1119,12 @@ function hud()
     term.setTextColor(512)
     local names = tonumber(readURL(readconfig("syncnode").."?getnames="..address))
     if names > 0 then term.write("["..tostring(names).."]") end
-    if address == "khm4f12scx" or address == "klhyy8e845" or address == "kcyd5vejdw" then
+    if address == "ke3kjplzsz" or address == "767fc628a4" or address == "e3b0c44298" then
       term.setCursorPos(1,1)
       term.setBackgroundColor(16384)
       term.setTextColor(16)
       term.clearLine()
-      term.write("The crash on trying to edit a name is now fixed btw")
+      term.write("You are currently using a blank string password.")
     end
   elseif page == 2 then
     term.setCursorPos(18,1)
@@ -1363,7 +1353,7 @@ function hud()
     term.setCursorPos(19,3)
     term.write("Double vault    Register name")
     term.setCursorPos(19,4)
-    term.write("Local vault     ")
+    term.write("Local vault")
     term.setCursorPos(19,5)
     --term.write("Disk vault      v1 SHA vault")
     term.setCursorPos(19,6)
@@ -1753,3 +1743,19 @@ function hud()
   end
 end
 boot()
+wallet = nil
+checkfile = nil
+posx = nil
+update = nil
+log = nil
+checkdir = nil
+readconfig = nil
+file = nil
+drawTab = nil
+makev2address = nil
+logfile = nil
+posy = nil
+openwallet = nil
+settle = nil
+drawBtn = nil
+hud = nil
