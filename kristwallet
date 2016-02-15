@@ -15,7 +15,7 @@
 ---------------------------------------------------
 | This wallet will NEVER save passwords anywhere. |]]local
 -----------------------------------------------]]--
-                   version = 15
+                   version = 14
 local latest = 0
 local balance = 0
 local balance2 = 0
