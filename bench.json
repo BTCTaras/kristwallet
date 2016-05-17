@@ -1,0 +1,16 @@
+{
+	"name": "krist",
+	"description": "Minable currency that works across servers",
+	"packages": [
+		{
+			"name": "kristwallet",
+			"description": "The second and most-used wallet for Krist",
+			"version": 14.1,
+			"download": {
+				"kristwallet.lua": "https://raw.githubusercontent.com/BTCTaras/kristwallet/master/src/kristwallet"
+			},
+			"tags": ["krist", "wallet", "kristwallet", "currency"],
+			"launch": "kristwallet.lua"
+		}
+	]
+}
