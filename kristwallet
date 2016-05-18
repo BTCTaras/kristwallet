@@ -100,7 +100,7 @@ function update()
   if latest > version then
     print("An update is available!")
     log("Discovered update")
-    if readconfig("autoupdate") then
+    if readconfig("autoupdate") and not bench then
       local me = fs.open(fs.getName(shell.getRunningProgram()),"w")
       local nextversion = readURL(readconfig("updateserver"))
       print("Installed update. Run this program again to start v"..latest..".")
@@ -113,7 +113,7 @@ function update()
     end
   else
     log("No updates found")
-  end  
+  end
 end
 function log(text)
   local logfile = fs.open("kst/log_wallet","a")
