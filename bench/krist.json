@@ -7,9 +7,11 @@
 			"description": "The second and most-used wallet for Krist",
 			"version": 14.1,
 			"download": {
-				"kristwallet.lua": "https://raw.githubusercontent.com/BTCTaras/kristwallet/master/kristwallet"
+				"kristwallet.lua": "github://BTCTaras/kristwallet/kristwallet",
+				"cleanup.lua": "github://BTCTaras/kristwallet/bench/cleanup.lua"
 			},
 			"tags": ["krist", "wallet", "kristwallet", "currency"],
+			"cleanup": "cleanup.lua",
 			"launch": "kristwallet.lua"
 		}
 	]
