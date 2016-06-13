@@ -66,7 +66,7 @@ local function readURL(url)
     error("Error connecting to server")
 	panic()
   end
-  local content = resp.readAll()
+  local content = resp.readAll():gsub("\n+$", "")
   resp.close()
   return content
 end
@@ -134,7 +134,7 @@ end
 function readconfig(path)
   if fs.exists("kst/"..path) then
     local file = fs.open("kst/"..path,"r")
-    local context = file.readAll()
+    local context = file.readAll():gsub("\n+$", "")
     file.close()
     if context == "true" then return true end
     if context == "false" then return false end
@@ -683,7 +683,7 @@ function wallet()
   local lexmm
   if lexm.readAll then
 	lem = true
-	lexmm = lexm.readAll()
+	lexmm = lexm.readAll():gsub("\n+$", "")
   end
 	
   if page == 1 then
