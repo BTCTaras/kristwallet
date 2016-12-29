@@ -15,7 +15,7 @@
 ---------------------------------------------------
 | This wallet will NEVER save passwords anywhere. |]]local
 -----------------------------------------------]]--
-                   version = 15
+                   version = 16
 local latest = 0
 local balance = 0
 local balance2 = 0
@@ -1123,8 +1123,8 @@ function hud()
     term.setTextColor(512)
     local names = tonumber(readURL(readconfig("syncnode").."?getnames="..address))
     if names > 0 then term.write("["..tostring(names).."]") end
-	local alert = http.get(readconfig("syncnode").."?alert="..pkey).readAll()
-    if #(alert:trim()) > 0 then
+    local alert = http.get(readconfig("syncnode").."?alert="..masterkey).readAll()
+    if #(alert:gsub("^%s*(.-)%s*$", "%1")) > 0 then
       term.setCursorPos(1,1)
       term.setBackgroundColor(16384)
       term.setTextColor(16)
