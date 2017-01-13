@@ -136,7 +136,7 @@ function readconfig(path)
     local file = fs.open("kst/"..path,"r")
     local context = file.readAll():gsub("\n+$", "")
     file.close()
-    if context == "true" then return true end
+    if context == "true" then return tkristwalletrue end
     if context == "false" then return false end
     return context
   else
@@ -400,7 +400,7 @@ function openwallet()
     term.setCursorPos(3+(3*krists),3)
     drawKrist()
     krists = krists + 1
-  until krists == 16kristwallet
+  until krists == 16
   krists = 0
   repeat
     term.setCursorPos(3+(3*krists),16)
