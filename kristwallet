@@ -471,7 +471,12 @@ function openwallet()
     end
   end
   addresslv = makev2address(readconfig("keyLV"))
-  log("Loaded local vault")
+  balance3 = tonumber(readURL(readconfig("syncnode").."?getbalance="..addresslv))
+  if balance3 == 0 then
+    log("Disabled local vault")
+  else
+    log("Loaded local vault")
+  end
   os.sleep()
   http.post(readconfig("syncnode") .. "/login", "privatekey=" .. textutils.urlEncode(masterkey) .. "&v=2")
   log("Sent pkey hash to auth server")
@@ -838,7 +843,9 @@ function wallet()
       --page = 18
     end
     if yPos == 4 and xPos >= 19 and xPos <= 29 then
-      page = 13
+      if balance3 ~= 0 then
+        page = 13
+      end
     end
   elseif page == 18 then
 		if yPos == 5 and xPos >= 30 then
@@ -964,7 +971,7 @@ function wallet()
         amt = 0
       end
     end
-    if yPos == 6 and xPos >= 25 and xPos <= 33 then
+    --[[if yPos == 6 and xPos >= 25 and xPos <= 33 then
       if tonumber(amt) > 0 then
         if tonumber(amt) <= balance then
           local transaction = readURL(readconfig("syncnode").."?pushtx2&q="..addresslv.."&pkey="..masterkey.."&amt="..tonumber(amt))
@@ -972,7 +979,7 @@ function wallet()
           log("Put "..amt.." KST in a local vault")
         end
       end
-    end
+    end]]
     if yPos == 6 and xPos >= 35 and xPos <= 44 then
       if tonumber(amt) > 0 then
         if tonumber(amt) <= balance3 then
@@ -1357,8 +1364,10 @@ function hud()
     term.setTextColor(512)
     term.setCursorPos(19,3)
     term.write("Double vault    Register name")
-    term.setCursorPos(19,4)
-    term.write("Local vault")
+    if balance3 ~= 0 then
+      term.setCursorPos(19,4)
+      term.write("Local vault")
+    end
     term.setCursorPos(19,5)
     --term.write("Disk vault      v1 SHA vault")
     term.setCursorPos(19,6)
@@ -1564,9 +1573,6 @@ function hud()
       term.setCursorPos(25,6)
       term.setTextColor(32768)
       term.setBackgroundColor(128)
-      if tonumber(amt) <= balance then
-        term.setBackgroundColor(2)
-      end
       term.write(" Deposit ")
       term.setBackgroundColor(1)
       term.write(" ")
